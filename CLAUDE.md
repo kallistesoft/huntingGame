@@ -11,7 +11,7 @@ This file carries the design discussion from a Claude chat (2026-10-27) so any C
 
 Alternatives considered: Unity (viable, but heavier and Claude can't run the editor), Phaser + Capacitor (fine for quick web prototypes, weaker for a growing store game).
 
-Target: mobile first (touch controls), Google Play under the owner's organization developer account, monetized with AdMob.
+Target: mobile first (touch controls), Google Play under the owner's organization developer account, monetized with AdMob rewarded ads and in-app purchases.
 
 ## Game concept (as described by the owner)
 
@@ -30,6 +30,20 @@ You are a **hunter**. You start at **level 1, almost naked**, in a **small zone*
 - **Progression:** quests and gathering give **XP**. Reaching a level **unlocks a new area**, and so on.
 - Play style: **both active and idle** — active gathering/hunting plus timer-based building and crafting.
 
+## Energy and monetization (owner, 2026-10-27)
+
+The game relies on **rewarded ads and in-app purchases**, built around a tiredness gauge:
+
+- **Energy gauge from 100 down to 0.** Actions (quests, gathering, hunting, etc.) lower it.
+- **At 0 the character must sleep** and the player waits for a sleep timer.
+- **A rewarded ad gives +10 energy** so the player can keep going a little longer.
+- In-app purchases also exist (exact offers not decided yet).
+
+Implications for the build:
+- Gives the **house** its role: it's where the character sleeps. House upgrades could shorten sleep or raise the energy cap.
+- Sleep has to count down in **real time, including while the app is closed**, so timers rely on saved timestamps, not in-game ticks.
+- Rewarded ads must stay opt-in (Google Play / AdMob policy); show only after the player taps a button.
+
 ## Proposed build order (not yet approved)
 
 1. Core loop in zone 1: movement, gather wood/stone, XP and levels.
@@ -46,5 +60,8 @@ Placeholder art first; real art to be sourced later (asset packs or an artist).
 
 - Number of zones and level gates.
 - Death / failure rules when hunger or thirst run out.
-- Whether timers keep running while the app is closed (idle progress).
+- Whether build/craft timers also keep running while the app is closed (the sleep timer does).
+- Energy cost per action, sleep duration, and a daily cap on energy ads.
+- In-app purchase offers (e.g. refill energy, skip sleep, remove interstitials, bigger bags, cosmetics).
+- Whether "tired" is the energy gauge alone, or hunger/thirst also slow the character.
 - Art style.
