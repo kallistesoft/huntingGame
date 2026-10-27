@@ -1,17 +1,29 @@
-extends Node2D
+extends Node3D
 ## The hunter. Moves with the on-screen joystick or WASD/arrow keys. The action
 ## button (or Space/E) uses the nearest thing in reach: hunt, gather, drink,
-## or open a camp station.
+## or open a camp station. The camera never turns, so screen up is world -Z.
 
-const REACH := 50.0 # gap allowed between the hunter and a target's edge
+const Shapes := preload("res://scripts/world/shapes.gd")
+const REACH := 1.25 # gap allowed between the hunter and a target's edge, metres
 const ACTION_COOLDOWN := 0.35
+const SKIN := Color(0.93, 0.76, 0.6)
 
-var world: Node2D
-var move_input := Vector2.ZERO # set by the joystick, length 0..1
+var world: Node3D
+var move_input := Vector2.ZERO # set by the joystick, length 0..1; y is screen down
 
 var _cooldown := 0.0
 var _swing := 0.0
-var _facing := Vector2.RIGHT
+var _model: Node3D
+var _arm: Node3D
+var _spear: Node3D
+var _bow: Node3D
+var _zzz: Label3D
+
+
+func _ready() -> void:
+	_build_shape()
+	Game.changed.connect(_update_gear)
+	_update_gear()
 
 
 func _process(delta: float) -> void:
@@ -24,14 +36,20 @@ func _process(delta: float) -> void:
 		_key(KEY_S, KEY_DOWN) - _key(KEY_W, KEY_UP))
 	if keys != Vector2.ZERO:
 		dir = keys.normalized()
-	if Game.is_sleeping():
+	var sleeping := Game.is_sleeping()
+	if sleeping:
 		dir = Vector2.ZERO
 	if dir != Vector2.ZERO:
-		_facing = dir.normalized()
-	position = (position + dir.limit_length(1.0) * Game.move_speed() * delta).clamp(
-		world.walk_bounds().position, world.walk_bounds().end)
-	Game.player_position = position
-	queue_redraw()
+		_face(dir)
+	var bounds: Rect2 = world.walk_bounds()
+	var next := (Shapes.flat(self) + dir.limit_length(1.0) * Game.move_speed() * delta).clamp(bounds.position, bounds.end)
+	position = Vector3(next.x, 0, next.y)
+	Game.player_position = next
+
+	_model.rotation_degrees.x = -90.0 if sleeping else 0.0
+	_model.position.y = 0.3 if sleeping else absf(sin(Time.get_ticks_msec() * 0.012)) * 0.08 * dir.length()
+	_zzz.visible = sleeping
+	_arm.rotation_degrees.x = -70.0 if _swing > 0.0 else 0.0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -44,6 +62,10 @@ func _key(a: Key, b: Key) -> float:
 	return 1.0 if Input.is_physical_key_pressed(a) or Input.is_physical_key_pressed(b) else 0.0
 
 
+func _face(dir: Vector2) -> void:
+	rotation.y = atan2(dir.x, dir.y)
+
+
 func do_action() -> void:
 	if _cooldown > 0.0 or Game.is_sleeping():
 		return
@@ -53,20 +75,22 @@ func do_action() -> void:
 		if _animal_nearby() and Game.weapon() == "":
 			Game.notify("You need a spear to hunt. Craft one at the crafting place.")
 		return
-	if not target.global_position.is_equal_approx(global_position):
-		_facing = global_position.direction_to(target.global_position)
+	var to_target := Shapes.flat(target) - Shapes.flat(self)
+	if to_target.length() > 0.01:
+		_face(to_target)
 	_swing = 0.2
 	target.interact(self)
 
 
 ## The nearest usable thing in reach. Animals are reachable from the weapon's range.
-func find_target() -> Node2D:
-	var best: Node2D = null
+func find_target() -> Node3D:
+	var best: Node3D = null
 	var best_gap := INF
+	var here := Shapes.flat(self)
 	for node in get_tree().get_nodes_in_group("interactable"):
 		if not node.is_available():
 			continue
-		var gap: float = global_position.distance_to(node.global_position)
+		var gap: float = here.distance_to(Shapes.flat(node))
 		var reach := REACH
 		if node.is_in_group("animal"):
 			if Game.weapon() == "":
@@ -82,25 +106,39 @@ func find_target() -> Node2D:
 
 func _animal_nearby() -> bool:
 	for node in get_tree().get_nodes_in_group("animal"):
-		if node.is_available() and global_position.distance_to(node.global_position) < 90.0:
+		if node.is_available() and Shapes.flat(self).distance_to(Shapes.flat(node)) < 2.25:
 			return true
 	return false
 
 
-func _draw() -> void:
-	draw_circle(Vector2(0, 14), 12, Color(0, 0, 0, 0.2))
-	draw_circle(Vector2.ZERO, 14, Color(0.93, 0.76, 0.6))
-	draw_circle(Vector2(0, -4), 8, Color(0.35, 0.22, 0.12)) # hair
-	draw_rect(Rect2(-10, 2, 20, 8), Color(0.55, 0.42, 0.25)) # loincloth
-	var hand := _facing * 16.0
+func _update_gear() -> void:
 	var w := Game.weapon()
-	if w == "spear":
-		var tip := hand + _facing * (34.0 if _swing > 0.0 else 22.0)
-		draw_line(hand - _facing * 14.0, tip, Color(0.5, 0.33, 0.15), 3.0)
-		draw_circle(tip, 3.0, Color(0.6, 0.6, 0.62))
-	elif w == "bow":
-		draw_arc(hand, 12.0, _facing.angle() - 1.2, _facing.angle() + 1.2, 10, Color(0.45, 0.28, 0.12), 3.0)
-	elif _swing > 0.0:
-		draw_circle(hand + _facing * 6.0, 5.0, Color(0.93, 0.76, 0.6))
-	if Game.is_sleeping():
-		draw_string(ThemeDB.fallback_font, Vector2(10, -20), "Zzz", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color.WHITE)
+	_spear.visible = w == "spear"
+	_bow.visible = w == "bow"
+
+
+## Built facing +Z so rotation.y = atan2(x, z) points it where it walks.
+func _build_shape() -> void:
+	_model = Node3D.new()
+	add_child(_model)
+	Shapes.add(_model, Shapes.capsule(0.28, 1.2), SKIN, Vector3(0, 0.75, 0))
+	Shapes.add(_model, Shapes.sphere(0.24), SKIN, Vector3(0, 1.55, 0))
+	Shapes.add(_model, Shapes.sphere(0.25), Color(0.35, 0.22, 0.12), Vector3(0, 1.65, -0.05), Vector3(1, 0.7, 1))
+	Shapes.add(_model, Shapes.cylinder(0.31, 0.25), Color(0.55, 0.42, 0.25), Vector3(0, 0.55, 0)) # loincloth
+	_arm = Node3D.new()
+	_arm.position = Vector3(0.32, 1.15, 0)
+	_model.add_child(_arm)
+	Shapes.add(_arm, Shapes.capsule(0.08, 0.6), SKIN, Vector3(0, -0.25, 0))
+	_spear = Node3D.new()
+	_arm.add_child(_spear)
+	var shaft := Shapes.add(_spear, Shapes.cylinder(0.03, 1.8), Color(0.5, 0.33, 0.15), Vector3(0, -0.5, 0.3))
+	shaft.rotation_degrees.x = 80
+	Shapes.add(_spear, Shapes.cylinder(0.06, 0.2, 0.0), Color(0.6, 0.6, 0.62), Vector3(0, -0.35, 1.2)).rotation_degrees.x = 90
+	_bow = Node3D.new()
+	_arm.add_child(_bow)
+	var bow_mesh := TorusMesh.new()
+	bow_mesh.inner_radius = 0.38
+	bow_mesh.outer_radius = 0.42
+	var bow := Shapes.add(_bow, bow_mesh, Color(0.45, 0.28, 0.12), Vector3(0, -0.5, 0.2), Vector3(1, 1, 0.5))
+	bow.rotation_degrees.z = 90
+	_zzz = Shapes.label(self, "Zzz", Vector3(0, 1.4, 0))

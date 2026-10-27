@@ -3,8 +3,9 @@ extends Node
 ## code reads from this file instead of hard-coding them.
 
 # --- Player and survival -----------------------------------------------------
+# Distances are in metres (1 unit = 1 m), speeds in metres per second.
 
-const PLAYER_SPEED := 200.0
+const PLAYER_SPEED := 5.0 # metres per second
 const BASE_CARRY := 20.0 # kg
 const START_ENERGY := 100.0
 const HUNGER_PER_SEC := 100.0 / 480.0 # full to empty in 8 minutes
@@ -47,8 +48,8 @@ const FOOD_ORDER := ["cooked_meat", "raw_meat", "berries"]
 
 ## Tools are owned once, not carried as weight.
 const TOOLS := {
-	"spear": {"name": "Wooden spear", "range": 70.0, "damage": 1},
-	"bow": {"name": "Hunting bow", "range": 220.0, "damage": 2},
+	"spear": {"name": "Wooden spear", "range": 1.8, "damage": 1},
+	"bow": {"name": "Hunting bow", "range": 5.5, "damage": 2},
 	"stone_axe": {"name": "Stone axe"},
 	"stone_pick": {"name": "Stone pickaxe"},
 	"leather_bag": {"name": "Leather bag", "carry_bonus": 15.0},
@@ -70,18 +71,18 @@ const RESOURCES := {
 
 const ANIMALS := {
 	"rabbit": {
-		"name": "Rabbit", "hp": 1, "size": 10.0, "color": Color(0.86, 0.82, 0.72),
-		"wander_speed": 40.0, "flee_speed": 150.0, "flee_radius": 150.0,
+		"name": "Rabbit", "hp": 1, "size": 0.25, "color": Color(0.86, 0.82, 0.72),
+		"wander_speed": 1.0, "flee_speed": 3.75, "flee_radius": 3.75,
 		"xp": 5, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"squirrel": {
-		"name": "Squirrel", "hp": 1, "size": 7.0, "color": Color(0.75, 0.42, 0.18),
-		"wander_speed": 50.0, "flee_speed": 165.0, "flee_radius": 130.0,
+		"name": "Squirrel", "hp": 1, "size": 0.18, "color": Color(0.75, 0.42, 0.18),
+		"wander_speed": 1.25, "flee_speed": 4.1, "flee_radius": 3.25,
 		"xp": 4, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"deer": {
-		"name": "Deer", "hp": 3, "size": 18.0, "color": Color(0.6, 0.4, 0.22),
-		"wander_speed": 35.0, "flee_speed": 175.0, "flee_radius": 200.0,
+		"name": "Deer", "hp": 3, "size": 0.45, "color": Color(0.6, 0.4, 0.22),
+		"wander_speed": 0.9, "flee_speed": 4.4, "flee_radius": 5.0,
 		"xp": 12, "drops": {"raw_meat": 3, "fur": 2, "hide": 1, "antler": 1}, "respawn": 60.0,
 	},
 }

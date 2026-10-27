@@ -11,7 +11,7 @@ const TOP_BAR_HEIGHT := 230.0
 const MESSAGE_SECONDS := 3.0
 const MAX_MESSAGES := 4
 
-var player: Node2D
+var player: Node3D
 
 var _bars := {} # name -> [ProgressBar, Label]
 var _level_label: Label
@@ -166,7 +166,7 @@ func _process(_delta: float) -> void:
 	var q := Game.current_quest()
 	_quest_label.text = "Quest: %s (%d/%d)" % [q["text"], Game.quest_progress_count(), q["count"]] if not q.is_empty() else ""
 
-	var target: Node2D = player.find_target()
+	var target: Node3D = player.find_target()
 	_hint_label.text = target.action_label() if target != null else ""
 	_hint_label.size = Vector2(320, 30)
 	_hint_label.position = _action_center() - Vector2(160, ACTION_RADIUS + 40)

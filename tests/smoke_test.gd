@@ -5,8 +5,8 @@ extends Node
 ## Exits with the number of failed checks. Deletes the save file when done.
 
 var failures := 0
-var world: Node2D
-var player: Node2D
+var world: Node3D
+var player: Node3D
 
 
 func _ready() -> void:
@@ -41,8 +41,8 @@ func _frames(n: int) -> void:
 		await get_tree().process_frame
 
 
-func _nearest(group_filter: Callable) -> Node2D:
-	var best: Node2D = null
+func _nearest(group_filter: Callable) -> Node3D:
+	var best: Node3D = null
 	for node in get_tree().get_nodes_in_group("interactable"):
 		if group_filter.call(node) and (best == null or
 				player.position.distance_to(node.position) < player.position.distance_to(best.position)):
@@ -51,8 +51,9 @@ func _nearest(group_filter: Callable) -> Node2D:
 
 
 ## Walks up to a node (teleport) and presses the action button once.
-func _act_on(node: Node2D) -> void:
-	player.position = node.position + Vector2(node.get("radius") if node.get("radius") != null else 0.0, 0) + Vector2(10, 0)
+func _act_on(node: Node3D) -> void:
+	var r: float = node.get("radius") if node.get("radius") != null else 0.0
+	player.position = node.position + Vector3(r + 0.25, 0, 0)
 	player._cooldown = 0.0
 	player.do_action()
 	await _frames(1)
@@ -107,7 +108,7 @@ func _test_build_and_craft() -> void:
 func _test_hunt() -> void:
 	print("Hunting")
 	for i in 2:
-		var rabbit := _nearest(func(n: Node) -> bool: return n.get("kind") == "rabbit" and n.is_available() and n.zone.end.x <= 1800)
+		var rabbit := _nearest(func(n: Node) -> bool: return n.get("kind") == "rabbit" and n.is_available() and n.zone.end.x <= 45)
 		var guard := 0
 		while rabbit.alive and guard < 10:
 			guard += 1
