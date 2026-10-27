@@ -1,0 +1,180 @@
+extends Node
+## Static game data and balance values. Tune numbers here; the rest of the
+## code reads from this file instead of hard-coding them.
+
+# --- Player and survival -----------------------------------------------------
+
+const PLAYER_SPEED := 200.0
+const BASE_CARRY := 20.0 # kg
+const START_ENERGY := 100.0
+const HUNGER_PER_SEC := 100.0 / 480.0 # full to empty in 8 minutes
+const THIRST_PER_SEC := 100.0 / 300.0 # full to empty in 5 minutes
+const SLEEP_NEED_RATE := 0.5 # hunger/thirst drain multiplier while asleep
+const LOW_NEED := 25.0 # below this, hunger/thirst slow the hunter
+const LOW_NEED_SPEED := 0.75
+const EMPTY_NEED_SPEED := 0.5
+const EXHAUSTED_SPEED := 0.6 # speed multiplier at 0 energy
+const DRINK_AMOUNT := 100.0
+const ATTACK_ENERGY := 2.0
+const NO_HOUSE_SLEEP_TIME := 60.0 # seconds, sleeping on the ground
+
+# --- Monetization ------------------------------------------------------------
+
+const AD_ENERGY_REWARD := 10.0
+const ADS_PER_DAY := 10
+
+# --- Progression -------------------------------------------------------------
+
+## Total XP needed to reach level (index + 1). Level 1 starts at 0 XP.
+const LEVEL_XP := [0, 50, 170, 390, 700, 1100, 1600, 2200, 2900, 3700]
+const ZONE2_LEVEL := 3
+
+# --- Items -------------------------------------------------------------------
+
+const ITEMS := {
+	"wood": {"name": "Wood", "weight": 1.0},
+	"stone": {"name": "Stone", "weight": 1.5},
+	"berries": {"name": "Berries", "weight": 0.2, "food": 8.0},
+	"raw_meat": {"name": "Raw meat", "weight": 0.5, "food": 12.0},
+	"cooked_meat": {"name": "Cooked meat", "weight": 0.4, "food": 35.0},
+	"hide": {"name": "Hide", "weight": 0.6},
+	"fur": {"name": "Fur", "weight": 0.3},
+	"antler": {"name": "Antler", "weight": 0.8},
+}
+
+## Food eaten by the quick "Eat" button, best first.
+const FOOD_ORDER := ["cooked_meat", "raw_meat", "berries"]
+
+## Tools are owned once, not carried as weight.
+const TOOLS := {
+	"spear": {"name": "Wooden spear", "range": 70.0, "damage": 1},
+	"bow": {"name": "Hunting bow", "range": 220.0, "damage": 2},
+	"stone_axe": {"name": "Stone axe"},
+	"stone_pick": {"name": "Stone pickaxe"},
+	"leather_bag": {"name": "Leather bag", "carry_bonus": 15.0},
+}
+
+# --- Gathering ---------------------------------------------------------------
+
+## Each hit gives 1 item, or 2 with the matching tool.
+const RESOURCES := {
+	"tree": {"name": "Tree", "item": "wood", "amount": 6, "tool": "stone_axe", "energy": 2.0, "xp": 2, "respawn": 60.0},
+	"rock": {"name": "Rock", "item": "stone", "amount": 5, "tool": "stone_pick", "energy": 3.0, "xp": 2, "respawn": 75.0},
+	"bush": {"name": "Berry bush", "item": "berries", "amount": 4, "tool": "", "energy": 1.0, "xp": 1, "respawn": 45.0},
+}
+
+# --- Animals -----------------------------------------------------------------
+
+const ANIMALS := {
+	"rabbit": {
+		"name": "Rabbit", "hp": 1, "size": 10.0, "color": Color(0.86, 0.82, 0.72),
+		"wander_speed": 40.0, "flee_speed": 150.0, "flee_radius": 150.0,
+		"xp": 10, "drops": {"raw_meat": 2, "hide": 1}, "respawn": 40.0,
+	},
+	"squirrel": {
+		"name": "Squirrel", "hp": 1, "size": 7.0, "color": Color(0.75, 0.42, 0.18),
+		"wander_speed": 50.0, "flee_speed": 165.0, "flee_radius": 130.0,
+		"xp": 8, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
+	},
+	"deer": {
+		"name": "Deer", "hp": 3, "size": 18.0, "color": Color(0.6, 0.4, 0.22),
+		"wander_speed": 35.0, "flee_speed": 175.0, "flee_radius": 200.0,
+		"xp": 25, "drops": {"raw_meat": 4, "hide": 2, "antler": 1}, "respawn": 60.0,
+	},
+}
+
+## Animals run for this long, then stop to catch their breath.
+const FLEE_STAMINA := 3.0
+const FLEE_REST := 1.2
+
+# --- Crafting ----------------------------------------------------------------
+
+## "tier" is the crafting place tier needed. A recipe gives either a tool or items.
+const RECIPES := {
+	"spear": {"tool": "spear", "tier": 1, "time": 10.0, "cost": {"wood": 3, "stone": 1}},
+	"stone_axe": {"tool": "stone_axe", "tier": 1, "time": 15.0, "cost": {"wood": 2, "stone": 2}},
+	"stone_pick": {"tool": "stone_pick", "tier": 1, "time": 15.0, "cost": {"wood": 2, "stone": 3}},
+	"cooked_meat": {"item": "cooked_meat", "count": 1, "tier": 1, "time": 5.0, "cost": {"raw_meat": 1, "wood": 1}},
+	"leather_bag": {"tool": "leather_bag", "tier": 2, "time": 30.0, "cost": {"hide": 3, "fur": 2}},
+	"bow": {"tool": "bow", "tier": 2, "time": 40.0, "cost": {"wood": 6, "hide": 2, "fur": 2}},
+}
+
+const CRAFT_XP := 5
+
+# --- Camp structures ---------------------------------------------------------
+
+## tiers[0] is tier 1. "level" is the hunter level needed to build that tier.
+const STRUCTURES := {
+	"crafting": {"name": "Crafting place", "tiers": [
+		{"cost": {"wood": 5}, "time": 10.0, "level": 1},
+		{"cost": {"wood": 10, "stone": 6, "hide": 2}, "time": 30.0, "level": 2},
+		{"cost": {"wood": 20, "stone": 15, "antler": 2}, "time": 60.0, "level": 4},
+	]},
+	"storage": {"name": "Storage", "tiers": [
+		{"cost": {"wood": 8}, "time": 15.0, "level": 1, "capacity": 50.0},
+		{"cost": {"wood": 15, "stone": 8}, "time": 30.0, "level": 2, "capacity": 150.0},
+		{"cost": {"wood": 25, "stone": 20, "hide": 4}, "time": 60.0, "level": 4, "capacity": 400.0},
+	]},
+	"house": {"name": "House", "tiers": [
+		{"cost": {"wood": 12, "stone": 4}, "time": 20.0, "level": 1, "sleep_time": 40.0, "max_energy": 100.0},
+		{"cost": {"wood": 20, "stone": 12, "hide": 4}, "time": 45.0, "level": 3, "sleep_time": 30.0, "max_energy": 120.0},
+		{"cost": {"wood": 30, "stone": 25, "fur": 6}, "time": 90.0, "level": 5, "sleep_time": 20.0, "max_energy": 150.0},
+	]},
+}
+
+const BUILD_XP_PER_TIER := 15
+
+# --- Quests ------------------------------------------------------------------
+
+## Done in order. "build" quests also count a structure built earlier.
+const QUESTS := [
+	{"text": "Gather 5 wood", "type": "gather", "target": "wood", "count": 5, "xp": 15},
+	{"text": "Build the crafting place", "type": "build", "target": "crafting", "count": 1, "xp": 20},
+	{"text": "Craft a wooden spear", "type": "craft", "target": "spear", "count": 1, "xp": 20},
+	{"text": "Hunt 2 rabbits", "type": "hunt", "target": "rabbit", "count": 2, "xp": 30},
+	{"text": "Build the storage", "type": "build", "target": "storage", "count": 1, "xp": 25},
+	{"text": "Hunt a squirrel", "type": "hunt", "target": "squirrel", "count": 1, "xp": 20},
+	{"text": "Cook 2 meat", "type": "craft", "target": "cooked_meat", "count": 2, "xp": 20},
+	{"text": "Build the house", "type": "build", "target": "house", "count": 1, "xp": 40},
+	{"text": "Hunt a deer in the east forest", "type": "hunt", "target": "deer", "count": 1, "xp": 60},
+]
+
+# --- Shop packs (placeholder purchases) ---------------------------------------
+
+## Pack items are delivered to the camp storage.
+const PACKS := {
+	"starter": {
+		"name": "Starter pack", "price": "€1.99",
+		"items": {"wood": 20, "stone": 10}, "energy": 50.0, "xp_boost_minutes": 30,
+	},
+	"hunter": {
+		"name": "Hunter pack", "price": "€4.99",
+		"items": {"raw_meat": 10, "hide": 5, "fur": 5}, "tools": ["spear"], "xp_boost_minutes": 120,
+	},
+}
+
+const XP_BOOST_MULT := 2.0
+
+
+func item_name(id: String) -> String:
+	if ITEMS.has(id):
+		return ITEMS[id]["name"]
+	if TOOLS.has(id):
+		return TOOLS[id]["name"]
+	return id
+
+
+func item_weight(id: String) -> float:
+	return ITEMS[id]["weight"] if ITEMS.has(id) else 0.0
+
+
+func recipe_name(id: String) -> String:
+	var r: Dictionary = RECIPES[id]
+	return item_name(r["tool"] if r.has("tool") else r["item"])
+
+
+func cost_text(cost: Dictionary) -> String:
+	var parts := []
+	for id in cost:
+		parts.append("%s ×%d" % [item_name(id), cost[id]])
+	return ", ".join(parts)

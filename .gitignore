@@ -1,0 +1,11 @@
+# Godot cache and imports
+.godot/
+
+# Android build template and exports
+/android/
+*.apk
+*.aab
+
+# Signing keys never go in git
+*.keystore
+*.jks
