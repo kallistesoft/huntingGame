@@ -13,7 +13,7 @@ Alternatives considered: Unity (viable, but heavier and Claude can't run the edi
 
 Target: mobile (touch controls), monetized with AdMob rewarded ads and in-app purchases.
 
-**Platforms: Android and iOS. Android first for the proof of concept (POC)**, on Google Play under the owner's organization developer account. iOS comes after the POC (needs an Apple Developer account and a Mac with Xcode to build).
+**Platforms: Android and iOS. Android first for the proof of concept (POC)**, on Google Play under the owner's organization developer account. The owner also already has an AdMob account. iOS comes after the POC (needs an Apple Developer account and a Mac with Xcode to build).
 
 To keep the later iOS port cheap:
 - Choose ads/purchase plugins that support both Android and iOS.
