@@ -112,8 +112,8 @@ func _test_hunt() -> void:
 		while rabbit.alive and guard < 10:
 			guard += 1
 			await _act_on(rabbit)
-	check(Game.inventory.get("raw_meat", 0) >= 4, "2 rabbits gave meat")
-	check(Game.inventory.get("hide", 0) >= 2, "2 rabbits gave hides")
+	check(Game.inventory.get("raw_meat", 0) >= 2, "2 rabbits gave meat")
+	check(Game.inventory.get("fur", 0) >= 2, "2 rabbits gave fur")
 	check(Game.quest_index == 4, "quest 'Hunt 2 rabbits' completed")
 
 

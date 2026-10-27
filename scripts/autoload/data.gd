@@ -65,21 +65,24 @@ const RESOURCES := {
 
 # --- Animals -----------------------------------------------------------------
 
+## Every kill gives a little XP, food (raw meat) and fur. Hide and antler come
+## only from deer in the east forest.
+
 const ANIMALS := {
 	"rabbit": {
 		"name": "Rabbit", "hp": 1, "size": 10.0, "color": Color(0.86, 0.82, 0.72),
 		"wander_speed": 40.0, "flee_speed": 150.0, "flee_radius": 150.0,
-		"xp": 10, "drops": {"raw_meat": 2, "hide": 1}, "respawn": 40.0,
+		"xp": 5, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"squirrel": {
 		"name": "Squirrel", "hp": 1, "size": 7.0, "color": Color(0.75, 0.42, 0.18),
 		"wander_speed": 50.0, "flee_speed": 165.0, "flee_radius": 130.0,
-		"xp": 8, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
+		"xp": 4, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"deer": {
 		"name": "Deer", "hp": 3, "size": 18.0, "color": Color(0.6, 0.4, 0.22),
 		"wander_speed": 35.0, "flee_speed": 175.0, "flee_radius": 200.0,
-		"xp": 25, "drops": {"raw_meat": 4, "hide": 2, "antler": 1}, "respawn": 60.0,
+		"xp": 12, "drops": {"raw_meat": 3, "fur": 2, "hide": 1, "antler": 1}, "respawn": 60.0,
 	},
 }
 
@@ -95,8 +98,8 @@ const RECIPES := {
 	"stone_axe": {"tool": "stone_axe", "tier": 1, "time": 15.0, "cost": {"wood": 2, "stone": 2}},
 	"stone_pick": {"tool": "stone_pick", "tier": 1, "time": 15.0, "cost": {"wood": 2, "stone": 3}},
 	"cooked_meat": {"item": "cooked_meat", "count": 1, "tier": 1, "time": 5.0, "cost": {"raw_meat": 1, "wood": 1}},
-	"leather_bag": {"tool": "leather_bag", "tier": 2, "time": 30.0, "cost": {"hide": 3, "fur": 2}},
-	"bow": {"tool": "bow", "tier": 2, "time": 40.0, "cost": {"wood": 6, "hide": 2, "fur": 2}},
+	"leather_bag": {"tool": "leather_bag", "tier": 2, "time": 30.0, "cost": {"fur": 5}},
+	"bow": {"tool": "bow", "tier": 2, "time": 40.0, "cost": {"wood": 6, "fur": 4}},
 }
 
 const CRAFT_XP := 5
@@ -107,7 +110,7 @@ const CRAFT_XP := 5
 const STRUCTURES := {
 	"crafting": {"name": "Crafting place", "tiers": [
 		{"cost": {"wood": 5}, "time": 10.0, "level": 1},
-		{"cost": {"wood": 10, "stone": 6, "hide": 2}, "time": 30.0, "level": 2},
+		{"cost": {"wood": 10, "stone": 6, "fur": 2}, "time": 30.0, "level": 2},
 		{"cost": {"wood": 20, "stone": 15, "antler": 2}, "time": 60.0, "level": 4},
 	]},
 	"storage": {"name": "Storage", "tiers": [
@@ -117,7 +120,7 @@ const STRUCTURES := {
 	]},
 	"house": {"name": "House", "tiers": [
 		{"cost": {"wood": 12, "stone": 4}, "time": 20.0, "level": 1, "sleep_time": 40.0, "max_energy": 100.0},
-		{"cost": {"wood": 20, "stone": 12, "hide": 4}, "time": 45.0, "level": 3, "sleep_time": 30.0, "max_energy": 120.0},
+		{"cost": {"wood": 20, "stone": 12, "fur": 4}, "time": 45.0, "level": 3, "sleep_time": 30.0, "max_energy": 120.0},
 		{"cost": {"wood": 30, "stone": 25, "fur": 6}, "time": 90.0, "level": 5, "sleep_time": 20.0, "max_energy": 150.0},
 	]},
 }
@@ -149,7 +152,7 @@ const PACKS := {
 	},
 	"hunter": {
 		"name": "Hunter pack", "price": "€4.99",
-		"items": {"raw_meat": 10, "hide": 5, "fur": 5}, "tools": ["spear"], "xp_boost_minutes": 120,
+		"items": {"raw_meat": 10, "fur": 10}, "tools": ["spear"], "xp_boost_minutes": 120,
 	},
 }
 
