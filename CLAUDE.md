@@ -37,7 +37,7 @@ The game relies on **rewarded ads and in-app purchases**, built around a tiredne
 - **Energy gauge from 100 down to 0.** Actions (quests, gathering, hunting, etc.) lower it.
 - **At 0 the character must sleep** and the player waits for a sleep timer.
 - **A rewarded ad gives +10 energy** so the player can keep going a little longer.
-- In-app purchases also exist (exact offers not decided yet).
+- In-app purchases also exist. Confirmed: **packs that help you level up** (contents not decided yet: XP boosts, resources, tools, etc.).
 
 Implications for the build:
 - Gives the **house** its role: it's where the character sleeps. House upgrades could shorten sleep or raise the energy cap.
@@ -62,6 +62,7 @@ Placeholder art first; real art to be sourced later (asset packs or an artist).
 - Death / failure rules when hunger or thirst run out.
 - Whether build/craft timers also keep running while the app is closed (the sleep timer does).
 - Energy cost per action, sleep duration, and a daily cap on energy ads.
-- In-app purchase offers (e.g. refill energy, skip sleep, remove interstitials, bigger bags, cosmetics).
+- In-app purchase offers beyond level-up packs (e.g. refill energy, skip sleep, remove interstitials, bigger bags, cosmetics).
+- Level-up pack contents and limits: flat XP vs. timed XP boosts vs. resources, and whether a pack can skip a zone gate.
 - Whether "tired" is the energy gauge alone, or hunger/thirst also slow the character.
 - Art style.
