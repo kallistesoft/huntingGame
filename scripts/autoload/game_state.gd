@@ -285,6 +285,7 @@ func on_animal_killed(kind: String) -> void:
 	for id in a["drops"]:
 		var n: int = a["drops"][id]
 		var added := add_to_bag(id, n)
+		quest_event("collect", "%s:%s" % [kind, id], added)
 		if added < n:
 			lost = true
 	if lost:

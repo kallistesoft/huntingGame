@@ -22,6 +22,7 @@ func _ready() -> void:
 	await _test_energy_sleep_and_ad()
 	await _test_pack_and_storage()
 	await _test_panels()
+	_test_collect_quest()
 	_test_levels_and_zone()
 	_test_save_load()
 
@@ -171,6 +172,25 @@ func _test_panels() -> void:
 		await _frames(2)
 		check(panel._content.get_child_count() > 0, "%s panel has content" % fn.get_method())
 	panel.close()
+
+
+func _test_collect_quest() -> void:
+	print("Collect quest")
+	var index := -1
+	for i in Data.QUESTS.size():
+		if Data.QUESTS[i]["type"] == "collect":
+			index = i
+	Game.quest_index = index
+	Game.quest_progress = 0
+	Game.inventory = {}
+	for i in 9:
+		Game.on_animal_killed("rabbit")
+	check(Game.quest_index == index and Game.quest_progress_count() == 9, "9 rabbit fur counted")
+	Game.on_animal_killed("squirrel")
+	check(Game.quest_progress_count() == 9, "squirrel fur doesn't count")
+	Game.on_animal_killed("rabbit")
+	check(Game.quest_index == index + 1, "quest 'Collect 10 rabbit fur' completed")
+	Game.inventory = {}
 
 
 func _test_levels_and_zone() -> void:
