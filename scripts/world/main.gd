@@ -72,7 +72,7 @@ func _ready() -> void:
 	add_child(boss)
 	var gate := PassGate.new()
 	gate.position = Vector3(pass_pos.x, 0, pass_pos.y)
-	gate.rotation_degrees.y = 90 # faces back into the forest
+	gate.rotation_degrees.y = -90 # faces back into the forest; mountains behind it to the east
 	add_child(gate)
 
 	_add_prop("pond", Vector2(34, 7.5))

@@ -91,7 +91,8 @@ func do_action() -> void:
 	target.interact(self)
 
 
-## The nearest usable thing in reach. Animals are reachable from the weapon's range.
+## The nearest usable thing in reach. Animals are reachable from the weapon's range;
+## the boss comes first whenever it is in range.
 func find_target() -> Node3D:
 	var best: Node3D = null
 	var best_gap := INF
@@ -107,6 +108,8 @@ func find_target() -> Node3D:
 			reach = Game.weapon_range()
 		if "radius" in node:
 			gap -= node.radius
+		if gap <= reach and node.is_in_group("boss"):
+			return node # in a boss fight, never chop a tree by mistake
 		if gap <= reach and gap < best_gap:
 			best = node
 			best_gap = gap

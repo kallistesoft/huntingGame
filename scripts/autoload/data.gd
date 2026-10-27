@@ -92,7 +92,7 @@ const ANIMALS := {
 ## forest. It charges instead of fleeing; a charge that hits costs the hunter
 ## energy and knocks them back. After a charge it is dizzy for a moment.
 const BOSS := {
-	"name": "Great Boar", "hp": 12, "size": 0.9, "color": Color(0.32, 0.22, 0.16),
+	"name": "Great Boar", "hp": 24, "size": 0.9, "color": Color(0.32, 0.22, 0.16),
 	"lair": Vector2(76, 9), "lair_radius": 6.0,
 	"walk_speed": 1.6, "charge_speed": 9.0, "aggro_radius": 8.0,
 	"windup": 0.9, "charge_time": 0.8, "dizzy": 2.2, "dizzy_damage_mult": 2,
