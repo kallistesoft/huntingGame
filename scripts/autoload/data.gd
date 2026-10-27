@@ -41,6 +41,7 @@ const ITEMS := {
 	"hide": {"name": "Hide", "weight": 0.6},
 	"fur": {"name": "Fur", "weight": 0.3},
 	"antler": {"name": "Antler", "weight": 0.8},
+	"tusk": {"name": "Boar tusk", "weight": 1.0},
 }
 
 ## Food eaten by the quick "Eat" button, best first.
@@ -87,6 +88,21 @@ const ANIMALS := {
 	},
 }
 
+## The boss of the demo: the Great Boar in its lair at the far end of the east
+## forest. It charges instead of fleeing; a charge that hits costs the hunter
+## energy and knocks them back. After a charge it is dizzy for a moment.
+const BOSS := {
+	"name": "Great Boar", "hp": 12, "size": 0.9, "color": Color(0.32, 0.22, 0.16),
+	"lair": Vector2(76, 9), "lair_radius": 6.0,
+	"walk_speed": 1.6, "charge_speed": 9.0, "aggro_radius": 8.0,
+	"windup": 0.9, "charge_time": 0.8, "dizzy": 2.2, "dizzy_damage_mult": 2,
+	"hit_energy": 15.0, "knockback": 4.0, "regen_per_sec": 0.5,
+	"xp": 150, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2},
+}
+
+## The mountain pass at the end of the east forest. Crossing it ends the demo.
+const NEXT_AREA := {"name": "Mountain pass", "level": 5, "position": Vector2(83.5, 25)}
+
 ## Animals run for this long, then stop to catch their breath.
 const FLEE_STAMINA := 3.0
 const FLEE_REST := 1.2
@@ -132,7 +148,8 @@ const BUILD_XP_PER_TIER := 15
 
 ## Done in order. Types: "gather" (item from trees/rocks/bushes), "hunt" (animal
 ## kills), "collect" (an animal's drop, target "animal:item"), "craft" (recipe),
-## "build" (structure; also counts one built earlier).
+## "build" (structure; also counts one built earlier), "level" (reach a level),
+## "boss" (defeat the Great Boar), "travel" (cross the mountain pass).
 const QUESTS := [
 	{"text": "Gather 5 wood", "type": "gather", "target": "wood", "count": 5, "xp": 15},
 	{"text": "Build the crafting place", "type": "build", "target": "crafting", "count": 1, "xp": 20},
@@ -144,6 +161,9 @@ const QUESTS := [
 	{"text": "Cook 2 meat", "type": "craft", "target": "cooked_meat", "count": 2, "xp": 20},
 	{"text": "Build the house", "type": "build", "target": "house", "count": 1, "xp": 40},
 	{"text": "Harvest 1 deer antler in the east forest", "type": "collect", "target": "deer:antler", "count": 1, "xp": 60},
+	{"text": "Reach level 5", "type": "level", "target": "", "count": 5, "xp": 0},
+	{"text": "Defeat the Great Boar", "type": "boss", "target": "boar", "count": 1, "xp": 100},
+	{"text": "Take the mountain pass", "type": "travel", "target": "mountains", "count": 1, "xp": 0},
 ]
 
 # --- Shop packs (placeholder purchases) ---------------------------------------

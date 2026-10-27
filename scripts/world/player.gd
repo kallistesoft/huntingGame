@@ -18,6 +18,7 @@ var _arm: Node3D
 var _spear: Node3D
 var _bow: Node3D
 var _zzz: Label3D
+var _knock := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -42,7 +43,9 @@ func _process(delta: float) -> void:
 	if dir != Vector2.ZERO:
 		_face(dir)
 	var bounds: Rect2 = world.walk_bounds()
-	var next := (Shapes.flat(self) + dir.limit_length(1.0) * Game.move_speed() * delta).clamp(bounds.position, bounds.end)
+	var velocity := dir.limit_length(1.0) * Game.move_speed() + _knock
+	_knock = _knock.move_toward(Vector2.ZERO, 14.0 * delta)
+	var next := (Shapes.flat(self) + velocity * delta).clamp(bounds.position, bounds.end)
 	position = Vector3(next.x, 0, next.y)
 	Game.player_position = next
 
@@ -56,6 +59,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode in [KEY_SPACE, KEY_E]:
 			do_action()
+
+
+## Pushes the hunter away, e.g. when the boss charge hits.
+func knockback(v: Vector2) -> void:
+	_knock = v * 3.0
+	_face(-v)
 
 
 func _key(a: Key, b: Key) -> float:
@@ -96,7 +105,7 @@ func find_target() -> Node3D:
 			if Game.weapon() == "":
 				continue
 			reach = Game.weapon_range()
-		else:
+		if "radius" in node:
 			gap -= node.radius
 		if gap <= reach and gap < best_gap:
 			best = node

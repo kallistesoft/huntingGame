@@ -24,6 +24,7 @@ func _ready() -> void:
 	await _test_panels()
 	_test_collect_quest()
 	_test_levels_and_zone()
+	await _test_boss_and_pass()
 	_test_save_load()
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
@@ -201,6 +202,45 @@ func _test_levels_and_zone() -> void:
 	check(world.walk_bounds().end.x > world.ZONE1.end.x, "east forest is walkable")
 
 
+func _test_boss_and_pass() -> void:
+	print("Boss and mountain pass")
+	var boss: Node3D = world.boss
+	Game.take_mountain_pass()
+	check(not Game.demo_done, "mountain pass closed before the boss")
+
+	# A charge that connects costs energy and pushes the hunter back.
+	Game.energy = 100.0
+	player.position = boss.position + Vector3(0, 0, 1.5)
+	await _frames(2)
+	boss._state = boss.State.CHARGE
+	boss._timer = 0.5
+	boss._charge_dir = Vector2(0, 1)
+	boss._charge_hit = false
+	await _frames(10)
+	check(Game.energy <= 100.0 - Data.BOSS["hit_energy"] + 0.01, "boar charge costs energy")
+
+	Game.tools["bow"] = true
+	Game.inventory = {}
+	var guard := 0
+	while boss.alive and guard < 300:
+		guard += 1
+		Game.energy = 100.0
+		player.position = boss.position + Vector3(3.0, 0, 0)
+		player._cooldown = 0.0
+		player.do_action()
+		await _frames(3)
+	check(Game.boss_defeated, "Great Boar defeated")
+	check(Game.inventory.get("tusk", 0) == Data.BOSS["drops"]["tusk"], "boar dropped tusks")
+
+	while Game.level < Data.NEXT_AREA["level"]:
+		Game.gain_xp(100)
+	Game.take_mountain_pass()
+	check(Game.demo_done, "mountain pass ends the demo")
+	await _frames(2)
+	check(world.hud._end_screen.visible, "end of demo screen shown")
+	world.hud._end_screen.visible = false
+
+
 func _test_save_load() -> void:
 	print("Save and load")
 	Game.save_game()
@@ -213,3 +253,4 @@ func _test_save_load() -> void:
 	check(Game.storage == storage, "storage restored")
 	check(Game.structure_tier("crafting") == tier, "camp restored")
 	check(Game.has_tool("spear"), "tools restored")
+	check(Game.boss_defeated and Game.demo_done, "boss and demo end restored")

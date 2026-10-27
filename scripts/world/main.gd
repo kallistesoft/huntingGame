@@ -19,11 +19,14 @@ const Player := preload("res://scripts/world/player.gd")
 const ResourceNode := preload("res://scripts/world/resource_node.gd")
 const Animal := preload("res://scripts/world/animal.gd")
 const Station := preload("res://scripts/world/station.gd")
+const Boss := preload("res://scripts/world/boss.gd")
+const PassGate := preload("res://scripts/world/pass_gate.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
 
 var player: Node3D
 var hud: Control
 var camera: Camera3D
+var boss: Node3D
 var _rng := RandomNumberGenerator.new()
 var _shake := 0.0
 var _taken: Array[Vector3] = [] # x, z, radius of placed props, to keep them apart
@@ -56,6 +59,21 @@ func _ready() -> void:
 	_add_station("storage", CAMP.position + Vector2(7.5, 2.75))
 	_add_station("house", CAMP.position + Vector2(2.75, 7.75))
 	_add_station("board", CAMP.position + Vector2(10, 7.75))
+
+	# Keep the boar's lair and the mountain pass clear of trees and rocks.
+	var lair: Vector2 = Data.BOSS["lair"]
+	_taken.append(Vector3(lair.x, lair.y, Data.BOSS["lair_radius"]))
+	var pass_pos: Vector2 = Data.NEXT_AREA["position"]
+	_taken.append(Vector3(pass_pos.x - 1.0, pass_pos.y, 4.0))
+	boss = Boss.new()
+	boss.player = player
+	boss.world = self
+	boss.position = Vector3(lair.x, 0, lair.y)
+	add_child(boss)
+	var gate := PassGate.new()
+	gate.position = Vector3(pass_pos.x, 0, pass_pos.y)
+	gate.rotation_degrees.y = 90 # faces back into the forest
+	add_child(gate)
 
 	_add_prop("pond", Vector2(34, 7.5))
 	_add_prop("pond", Vector2(67, 24))
@@ -194,6 +212,19 @@ func fx_built(node: Node3D, tier: int) -> void:
 	Fx.float_text(self, node.global_position + Vector3(0, 3.2, 0), "Tier %d!" % tier, Style.ACCENT)
 	shake(0.15)
 	vibrate(40)
+
+
+func fx_kill_boss(node: Node3D) -> void:
+	var top := node.global_position + Vector3(0, 2.6, 0)
+	var line := 0
+	for item in Data.BOSS["drops"]:
+		Fx.float_text(self, top + Vector3(0, 0.45 * line, 0), "+%d %s" % [Data.BOSS["drops"][item], Data.item_name(item)], Style.TEXT, 0.12 * line)
+		hud.fly_to_bag(camera.unproject_position(top), Style.ITEM_COLORS.get(item, Color.WHITE), 3)
+		line += 1
+	Fx.float_text(self, top + Vector3(0, -0.45, 0), "+%d XP" % Game.xp_with_boost(Data.BOSS["xp"]), Style.XP, 0.12 * line)
+	Fx.burst(self, node.global_position + Vector3(0, 1.0, 0), Style.ACCENT, 40, 0.12, 6.0)
+	shake(0.4)
+	vibrate(150)
 
 
 func open_station(station: Node3D) -> void:

@@ -24,6 +24,7 @@ func _ready() -> void:
 	camp_label.no_depth_test = false
 	Shapes.label(self, "EAST FOREST", Vector3(zone2.position.x + 4, 1.5, zone2.position.y + 3), 96)
 
+	_add_lair()
 	_add_grass(zone1, 1400, Color(0.42, 0.62, 0.3))
 	_add_grass(zone2, 1300, Color(0.3, 0.5, 0.26))
 	_add_flowers(zone1, 160)
@@ -63,7 +64,7 @@ func _add_grass(zone: Rect2, count: int, color: Color) -> void:
 	rng.seed = int(zone.position.x) + 11
 	while spots.size() < count:
 		var p := Vector2(rng.randf_range(zone.position.x, zone.end.x), rng.randf_range(zone.position.y, zone.end.y))
-		if not camp.grow(0.3).has_point(p):
+		if not camp.grow(0.3).has_point(p) and p.distance_to(Data.BOSS["lair"]) > Data.BOSS["lair_radius"]:
 			spots.append(p)
 	mm.instance_count = spots.size() * 3
 	var i := 0
@@ -103,3 +104,20 @@ func _add_flowers(zone: Rect2, count: int) -> void:
 		mmi.material_override = Shapes.sway_material(c, 0.25)
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mmi)
+
+
+## The Great Boar's lair: a trampled dirt clearing ringed with rocks and bones.
+func _add_lair() -> void:
+	var lair: Vector2 = Data.BOSS["lair"]
+	var r: float = Data.BOSS["lair_radius"]
+	Shapes.add(self, Shapes.cylinder(r, 0.02), Color(0.42, 0.33, 0.24), Vector3(lair.x, 0.015, lair.y))
+	for i in 18:
+		var a := i * TAU / 18.0
+		var p := Vector3(lair.x + cos(a) * (r + 0.3), 0.2, lair.y + sin(a) * (r + 0.3))
+		Shapes.add(self, Shapes.sphere(0.45), Color(0.45, 0.45, 0.48), p, Vector3(1.0, 0.7 + 0.3 * (i % 3), 1.0))
+	for i in 5:
+		var a := i * 1.3
+		var bone := Shapes.add(self, Shapes.capsule(0.06, 0.6), Color(0.92, 0.9, 0.82),
+			Vector3(lair.x + cos(a) * r * 0.6, 0.06, lair.y + sin(a) * r * 0.5))
+		bone.rotation_degrees = Vector3(90, i * 47, 0)
+	Shapes.label(self, Data.BOSS["name"] + "'s lair", Vector3(lair.x, 2.4, lair.y + r + 1.0), 44)

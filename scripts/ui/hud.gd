@@ -9,6 +9,7 @@ const Style := preload("res://scripts/ui/style.gd")
 const Icons := preload("res://scripts/ui/icons.gd")
 const IconRect := preload("res://scripts/ui/icon_rect.gd")
 const IconButton := preload("res://scripts/ui/icon_button.gd")
+const Shapes := preload("res://scripts/world/shapes.gd")
 const JOY_RADIUS := 80.0
 const ACTION_RADIUS := 78.0
 const TOP_BAR_HEIGHT := 230.0
@@ -31,6 +32,11 @@ var _prompt_label: Label
 var _prompt_sleep: Button
 var _prompt_ad: Button
 var _banner: Label
+var _boss_card: PanelContainer
+var _boss_bar: ProgressBar
+var _boss_label: Label
+var _boss_shown := 0.0
+var _end_screen: Control
 var _panel: Control
 
 var _joy_index := -1
@@ -76,6 +82,10 @@ func _ready() -> void:
 	_banner.visible = false
 	add_child(_banner)
 	Game.leveled_up.connect(_on_level_up)
+
+	_build_boss_bar()
+	_build_end_screen()
+	Game.demo_finished.connect(_show_end_screen)
 
 	_panel = GamePanel.new()
 	add_child(_panel)
@@ -210,6 +220,96 @@ func _build_prompt() -> void:
 	row.add_child(_prompt_ad)
 
 
+func _build_boss_bar() -> void:
+	_boss_card = PanelContainer.new()
+	_boss_card.theme_type_variation = "Pill"
+	_boss_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_boss_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_boss_card.position.y = 100
+	_boss_card.custom_minimum_size = Vector2(420, 0)
+	_boss_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_boss_card.visible = false
+	add_child(_boss_card)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	_boss_card.add_child(col)
+	_boss_label = Label.new()
+	_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_label.add_theme_font_override("font", Style.font_bold())
+	_boss_label.add_theme_font_size_override("font_size", 18)
+	col.add_child(_boss_label)
+	_boss_bar = ProgressBar.new()
+	_boss_bar.custom_minimum_size = Vector2(0, 14)
+	_boss_bar.show_percentage = false
+	_boss_bar.add_theme_stylebox_override("fill", Style.box(Style.BAD, 7, 0))
+	col.add_child(_boss_bar)
+
+
+func _build_end_screen() -> void:
+	_end_screen = ColorRect.new()
+	_end_screen.color = Color(0.05, 0.08, 0.06, 0.88)
+	_end_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_end_screen.mouse_filter = Control.MOUSE_FILTER_STOP
+	_end_screen.visible = false
+	add_child(_end_screen)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_end_screen.add_child(center)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 16)
+	center.add_child(col)
+	var icon := IconRect.new()
+	icon.icon = "xp"
+	icon.color = Style.ACCENT
+	icon.custom_minimum_size = Vector2(80, 80)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(icon)
+	var title := Label.new()
+	title.text = "End of the demo"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", Style.font_bold())
+	title.add_theme_font_size_override("font_size", 56)
+	title.add_theme_color_override("font_color", Style.ACCENT)
+	col.add_child(title)
+	var body := Label.new()
+	body.name = "Body"
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.add_theme_font_size_override("font_size", 22)
+	col.add_child(body)
+	var keep := Button.new()
+	keep.text = "Keep playing"
+	keep.theme_type_variation = "PrimaryButton"
+	keep.custom_minimum_size = Vector2(260, 64)
+	keep.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	keep.pressed.connect(func() -> void: _end_screen.visible = false)
+	Style.add_press_juice(keep)
+	col.add_child(keep)
+
+
+func _show_end_screen() -> void:
+	_release_touches()
+	var body: Label = _end_screen.find_child("Body", true, false)
+	body.text = "You crossed the mountain pass at level %d.\nThe Mountains, new animals and a bigger camp are coming in the full game.\nThanks for playing!" % Game.level
+	_end_screen.visible = true
+	_end_screen.modulate.a = 0.0
+	_end_screen.create_tween().tween_property(_end_screen, "modulate:a", 1.0, 0.6)
+
+
+func _update_boss_bar(smooth: float) -> void:
+	var boss := get_tree().get_first_node_in_group("boss")
+	var show: bool = boss != null and boss.alive and Shapes.flat(boss).distance_to(Shapes.flat(player)) < Data.BOSS["aggro_radius"] + 4.0
+	if show and not _boss_card.visible:
+		_boss_shown = boss.hp
+	_boss_card.visible = show
+	if not show:
+		return
+	_boss_shown = lerpf(_boss_shown, boss.hp, smooth)
+	_boss_bar.max_value = Data.BOSS["hp"]
+	_boss_bar.value = _boss_shown
+	_boss_label.text = Data.BOSS["name"] + ("  ·  DIZZY! Strike now" if boss.is_dizzy() else "")
+
+
 func open_station(kind: String) -> void:
 	_release_touches()
 	_panel.open_station(kind)
@@ -244,8 +344,9 @@ func _process(delta: float) -> void:
 	_action_pulse += delta * 4.0
 
 	_update_prompt()
+	_update_boss_bar(smooth)
 
-	if _panel.visible or AdService.is_showing():
+	if _panel.visible or AdService.is_showing() or _end_screen.visible:
 		_release_touches()
 	elif _act_index != -1:
 		player.do_action() # holding the button repeats, limited by the cooldown
@@ -366,7 +467,7 @@ func _input(event: InputEvent) -> void:
 			if event.index == _act_index:
 				_act_index = -1
 			return
-		if _panel.visible or AdService.is_showing() or _prompt_hit(event.position):
+		if _panel.visible or AdService.is_showing() or _end_screen.visible or _prompt_hit(event.position):
 			return
 		if event.position.distance_to(_action_center()) <= ACTION_RADIUS:
 			_act_index = event.index

@@ -13,7 +13,9 @@ What the POC covers:
 - Energy 100 → 0 spent by actions; at 0 the hunter is slow and can't act. Sleep (60 s outside, shorter in the house) or a **placeholder rewarded ad** for +10 energy (10 per day).
 - Camp: crafting place, storage, house, each 3 tiers built on real-time timers. Crafting recipes (spear, axe, pickaxe, cooked meat, bag, bow).
 - Hunting with spear/bow; animals flee, then stop to rest. Drops: meat, hide, fur, antler.
-- Quest board with 9 linear quests, XP and levels.
+- Quest board with 13 linear quests, XP and levels. Quest types: gather, harvest an animal's drop ("Harvest 2 rabbit fur"), craft, build, reach a level, defeat the boss, travel.
+- **Boss: the Great Boar** in its lair at the far east of zone 2. It paws the ground (red glow), then charges; a hit costs 15 energy and knocks the hunter back. After a charge it is dizzy and takes double damage. Heals slowly if the hunter leaves. Drops tusks, hide, meat, 150 XP. HUD shows its health bar nearby.
+- **Mountain pass** (next area gate) at the east edge: needs level 5 + the boar defeated. In the demo, crossing it shows the **End of the demo** screen ("Keep playing" returns to the game).
 - Shop with **placeholder packs** (Starter, Hunter): no real payment.
 - Save to `user://save.json` every 10 s and when the app is paused/closed. Timers use real-world time, so building, crafting and sleep finish while the app is closed; hunger/thirst only drain while it's open.
 
@@ -28,7 +30,7 @@ Not done yet: real AdMob and billing plugins, Android export preset and signing,
 - `scripts/autoload/data.gd` (`Data`): all items, recipes, structures, animals, quests, packs and balance numbers. **Tune the game here.**
 - `scripts/autoload/game_state.gd` (`Game`): player progress, survival, timers, quests, save/load. Game rules live here, not in nodes.
 - `scripts/autoload/ad_service.gd` (`AdService`), `store_service.gd` (`StoreService`): placeholders; AdMob and billing plug in here only.
-- `scripts/world/`: `main.gd` builds the world, camera and lights; `player.gd`, `animal.gd`, `resource_node.gd`, `station.gd`, `ground.gd`; `shapes.gd` holds the placeholder-shape helpers.
+- `scripts/world/`: `main.gd` builds the world, camera and lights; `player.gd`, `animal.gd`, `boss.gd`, `pass_gate.gd`, `resource_node.gd`, `station.gd`, `ground.gd`; `shapes.gd` holds the placeholder-shape helpers.
 - `scripts/ui/`: `hud.gd` (stats, quest card, buttons, touch controls, sleep prompt, effects), `panel.gd` (station, bag, shop, menu bottom sheets), `style.gd` (palette, font, theme), `icons.gd` + `icon_rect.gd` + `icon_button.gd` (vector icons).
 - `scripts/world/fx.gd`: floating text and particle bursts; `main.gd` has the `fx_*` hooks, camera shake and vibration.
 - Visual previews here use Godot's OpenGL (Compatibility) renderer because the cloud has no Vulkan; the game itself uses the Mobile renderer, so check lighting on a real phone. Filmic tone-mapping looked washed out in previews, so the tone-mapper is left at Linear.

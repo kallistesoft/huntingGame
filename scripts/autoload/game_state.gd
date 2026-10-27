@@ -9,6 +9,7 @@ extends Node
 signal changed
 signal message(text: String)
 signal leveled_up(level: int)
+signal demo_finished
 
 const SAVE_PATH := "user://save.json"
 const SAVE_VERSION := 1
@@ -30,6 +31,8 @@ var ads_today := 0
 var quest_index := 0
 var quest_progress := 0
 var xp_boost_until := 0.0
+var boss_defeated := false
+var demo_done := false
 var player_position := Vector2.ZERO
 var has_player_position := false
 
@@ -279,6 +282,51 @@ func try_attack() -> bool:
 	return true
 
 
+## The Great Boar's charge connected.
+func on_boss_hit_player() -> void:
+	energy = maxf(0.0, energy - Data.BOSS["hit_energy"])
+	notify("The boar rams you! -%d energy" % Data.BOSS["hit_energy"])
+	changed.emit()
+
+
+func on_boss_killed() -> void:
+	boss_defeated = true
+	var lost := false
+	for id in Data.BOSS["drops"]:
+		var n: int = Data.BOSS["drops"][id]
+		if add_to_bag(id, n) < n:
+			lost = true
+	notify("You defeated the %s!" % Data.BOSS["name"])
+	if lost:
+		notify("Bag full: some loot was left behind.")
+	gain_xp(Data.BOSS["xp"])
+	quest_event("boss", "boar", 1)
+	changed.emit()
+	save_game()
+
+
+## Why the hunter can't take the mountain pass yet, or "" if they can.
+func next_area_blocker() -> String:
+	var parts := []
+	if level < Data.NEXT_AREA["level"]:
+		parts.append("reach level %d" % Data.NEXT_AREA["level"])
+	if not boss_defeated:
+		parts.append("defeat the %s" % Data.BOSS["name"])
+	return "" if parts.is_empty() else "To cross: " + " and ".join(parts) + "."
+
+
+func take_mountain_pass() -> void:
+	var blocker := next_area_blocker()
+	if blocker != "":
+		notify(blocker)
+		return
+	quest_event("travel", "mountains", 1)
+	demo_done = true
+	changed.emit()
+	save_game()
+	demo_finished.emit()
+
+
 func on_animal_killed(kind: String) -> void:
 	var a: Dictionary = Data.ANIMALS[kind]
 	var lost := false
@@ -518,6 +566,7 @@ func gain_xp(amount: int) -> void:
 		if level == Data.ZONE2_LEVEL:
 			notify("Level %d: the east forest is open!" % level)
 		leveled_up.emit(level)
+	_check_quest()
 
 
 func current_quest() -> Dictionary:
@@ -530,8 +579,10 @@ func quest_progress_count() -> int:
 	var q := current_quest()
 	if q.is_empty():
 		return 0
-	if q["type"] == "build":
-		return 1 if structure_tier(q["target"]) >= 1 else 0
+	match q["type"]:
+		"build": return 1 if structure_tier(q["target"]) >= 1 else 0
+		"level": return level
+		"boss": return 1 if boss_defeated else 0
 	return quest_progress
 
 
@@ -581,6 +632,8 @@ func _reset_state() -> void:
 	quest_index = 0
 	quest_progress = 0
 	xp_boost_until = 0.0
+	boss_defeated = false
+	demo_done = false
 	player_position = Vector2.ZERO
 	has_player_position = false
 
@@ -596,6 +649,7 @@ func save_game() -> void:
 		"sleep_until": sleep_until, "ad_day": ad_day, "ads_today": ads_today,
 		"quest_index": quest_index, "quest_progress": quest_progress,
 		"xp_boost_until": xp_boost_until,
+		"boss_defeated": boss_defeated, "demo_done": demo_done,
 		"player_position": [player_position.x, player_position.y],
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -641,6 +695,8 @@ func load_game() -> void:
 	quest_index = int(data.get("quest_index", 0))
 	quest_progress = int(data.get("quest_progress", 0))
 	xp_boost_until = float(data.get("xp_boost_until", 0.0))
+	boss_defeated = bool(data.get("boss_defeated", false))
+	demo_done = bool(data.get("demo_done", false))
 	var pos: Array = data.get("player_position", [])
 	if pos.size() == 2:
 		player_position = Vector2(pos[0], pos[1])
