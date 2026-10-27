@@ -237,6 +237,19 @@ func _test_death() -> void:
 	check(Game.storage.get("stone", 0) == 4, "give up: storage is kept")
 	check(Shapes.flat(player).distance_to(world.CAMP.get_center()) < 8.0, "give up: back at camp")
 
+	# Starvation: food and water at 0 drain health until the hunter collapses.
+	Game.hunger = 0.0
+	Game.thirst = 0.0
+	Game.health = 10.0
+	await get_tree().create_timer(1.0).timeout
+	check(Game.health < 9.0, "starving drains health")
+	Game.health = 0.5
+	await get_tree().create_timer(1.0).timeout
+	check(Game.is_dead(), "starvation knocks the hunter out")
+	Game.give_up()
+	check(Game.hunger >= Data.WAKE_NEEDS and Game.thirst >= Data.WAKE_NEEDS, "waking at home restores some food and water")
+	await _frames(2)
+
 
 func _test_boss_and_pass() -> void:
 	print("Boss and mountain pass")

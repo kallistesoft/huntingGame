@@ -41,6 +41,7 @@ var player_position := Vector2.ZERO
 var has_player_position := false
 
 var _autosave_left := AUTOSAVE_SECONDS
+var _starve_warn_left := 0.0
 
 
 func _ready() -> void:
@@ -60,6 +61,7 @@ func _process(delta: float) -> void:
 	thirst = maxf(0.0, thirst - Data.THIRST_PER_SEC * delta * drain)
 	if not is_dead() and hunger > Data.LOW_NEED and thirst > Data.LOW_NEED:
 		health = minf(Data.MAX_HEALTH, health + Data.HEALTH_REGEN * delta)
+	_starve(delta)
 	_update_timers(t)
 	_autosave_left -= delta
 	if _autosave_left <= 0.0:
@@ -247,11 +249,32 @@ func is_dead() -> bool:
 func damage(amount: float, source: String) -> void:
 	if is_dead() or now() < protected_until:
 		return
-	health = maxf(0.0, health - amount)
 	notify("%s -%d health" % [source, amount])
+	_lose_health(amount)
+
+
+func _lose_health(amount: float) -> void:
+	health = maxf(0.0, health - amount)
 	if is_dead():
+		sleep_until = 0.0
 		died.emit()
 	changed.emit()
+
+
+## Food or water at 0 drains health; both at 0 drain twice as fast.
+func _starve(delta: float) -> void:
+	var empty := int(hunger <= 0.0) + int(thirst <= 0.0)
+	if empty == 0 or is_dead():
+		_starve_warn_left = 0.0
+		return
+	health = maxf(0.0, health - Data.STARVE_DAMAGE * empty * delta)
+	_starve_warn_left -= delta
+	if _starve_warn_left <= 0.0:
+		_starve_warn_left = 8.0
+		var need := "food and water" if empty == 2 else ("food" if hunger <= 0.0 else "water")
+		notify("You are starving! Find %s or you will collapse." % need)
+	if is_dead():
+		_lose_health(0.0)
 
 
 ## Death choice 1: watch a rewarded ad and get back up where you fell.
@@ -263,7 +286,7 @@ func revive_with_ad() -> void:
 			return
 		health = Data.MAX_HEALTH * Data.REVIVE_HEALTH
 		protected_until = now() + Data.REVIVE_GRACE
-		notify("You get back up!")
+		notify("You get back up!" if hunger > 0.0 and thirst > 0.0 else "You get back up! Eat and drink quickly.")
 		changed.emit()
 		save_game())
 
@@ -274,6 +297,8 @@ func give_up() -> void:
 		return
 	inventory = {}
 	health = Data.MAX_HEALTH
+	hunger = maxf(hunger, Data.WAKE_NEEDS)
+	thirst = maxf(thirst, Data.WAKE_NEEDS)
 	sleep_until = 0.0
 	var at_house := structure_tier("house") > 0
 	notify("You wake up %s. Everything in your bag is lost." % ("in your house" if at_house else "at camp"))
