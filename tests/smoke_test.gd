@@ -116,7 +116,7 @@ func _test_hunt() -> void:
 			await _act_on(rabbit)
 	check(Game.inventory.get("raw_meat", 0) >= 2, "2 rabbits gave meat")
 	check(Game.inventory.get("fur", 0) >= 2, "2 rabbits gave fur")
-	check(Game.quest_index == 4, "quest 'Hunt 2 rabbits' completed")
+	check(Game.quest_index == 4, "quest 'Harvest 2 rabbit fur' completed")
 
 
 func _test_energy_sleep_and_ad() -> void:
@@ -178,7 +178,7 @@ func _test_collect_quest() -> void:
 	print("Collect quest")
 	var index := -1
 	for i in Data.QUESTS.size():
-		if Data.QUESTS[i]["type"] == "collect":
+		if Data.QUESTS[i]["target"] == "rabbit:fur" and Data.QUESTS[i]["count"] == 10:
 			index = i
 	Game.quest_index = index
 	Game.quest_progress = 0
@@ -189,7 +189,7 @@ func _test_collect_quest() -> void:
 	Game.on_animal_killed("squirrel")
 	check(Game.quest_progress_count() == 9, "squirrel fur doesn't count")
 	Game.on_animal_killed("rabbit")
-	check(Game.quest_index == index + 1, "quest 'Collect 10 rabbit fur' completed")
+	check(Game.quest_index == index + 1, "quest 'Harvest 10 rabbit fur' completed")
 	Game.inventory = {}
 
 

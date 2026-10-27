@@ -137,13 +137,13 @@ const QUESTS := [
 	{"text": "Gather 5 wood", "type": "gather", "target": "wood", "count": 5, "xp": 15},
 	{"text": "Build the crafting place", "type": "build", "target": "crafting", "count": 1, "xp": 20},
 	{"text": "Craft a wooden spear", "type": "craft", "target": "spear", "count": 1, "xp": 20},
-	{"text": "Hunt 2 rabbits", "type": "hunt", "target": "rabbit", "count": 2, "xp": 30},
+	{"text": "Harvest 2 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 2, "xp": 30},
 	{"text": "Build the storage", "type": "build", "target": "storage", "count": 1, "xp": 25},
-	{"text": "Hunt a squirrel", "type": "hunt", "target": "squirrel", "count": 1, "xp": 20},
-	{"text": "Collect 10 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 10, "xp": 40},
+	{"text": "Harvest 1 squirrel fur", "type": "collect", "target": "squirrel:fur", "count": 1, "xp": 20},
+	{"text": "Harvest 10 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 10, "xp": 40},
 	{"text": "Cook 2 meat", "type": "craft", "target": "cooked_meat", "count": 2, "xp": 20},
 	{"text": "Build the house", "type": "build", "target": "house", "count": 1, "xp": 40},
-	{"text": "Hunt a deer in the east forest", "type": "hunt", "target": "deer", "count": 1, "xp": 60},
+	{"text": "Harvest 1 deer antler in the east forest", "type": "collect", "target": "deer:antler", "count": 1, "xp": 60},
 ]
 
 # --- Shop packs (placeholder purchases) ---------------------------------------
