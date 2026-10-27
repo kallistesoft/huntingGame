@@ -12,6 +12,8 @@ const CAMERA_OFFSET := Vector3(0, 13, 9) # above and behind the hunter
 const CAMERA_FOLLOW := 6.0
 
 const Shapes := preload("res://scripts/world/shapes.gd")
+const Fx := preload("res://scripts/world/fx.gd")
+const Style := preload("res://scripts/ui/style.gd")
 const Ground := preload("res://scripts/world/ground.gd")
 const Player := preload("res://scripts/world/player.gd")
 const ResourceNode := preload("res://scripts/world/resource_node.gd")
@@ -23,6 +25,7 @@ var player: Node3D
 var hud: Control
 var camera: Camera3D
 var _rng := RandomNumberGenerator.new()
+var _shake := 0.0
 var _taken: Array[Vector3] = [] # x, z, radius of placed props, to keep them apart
 
 
@@ -84,22 +87,48 @@ func _process(delta: float) -> void:
 func _place_camera(weight: float) -> void:
 	camera.position = camera.position.lerp(player.position + CAMERA_OFFSET, weight)
 	camera.look_at(camera.position - CAMERA_OFFSET)
+	if _shake > 0.0:
+		camera.h_offset = randf_range(-1.0, 1.0) * _shake
+		camera.v_offset = randf_range(-1.0, 1.0) * _shake
+		_shake = maxf(0.0, _shake - get_process_delta_time() * 1.5)
+	else:
+		camera.h_offset = 0.0
+		camera.v_offset = 0.0
 
 
 func _add_environment() -> void:
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color(0.32, 0.55, 0.85)
+	sky_material.sky_horizon_color = Color(0.78, 0.86, 0.92)
+	sky_material.ground_horizon_color = Color(0.6, 0.66, 0.6)
+	sky_material.ground_bottom_color = Color(0.25, 0.3, 0.22)
+	var sky := Sky.new()
+	sky.sky_material = sky_material
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.55, 0.75, 0.95)
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.75, 0.8, 0.9)
-	env.ambient_light_energy = 0.45
+	env.ambient_light_color = Color(0.72, 0.78, 0.9)
+	env.ambient_light_energy = 0.5
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
+	env.glow_enabled = true
+	env.glow_intensity = 0.35
+	env.glow_bloom = 0.05
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.72, 0.82, 0.9)
+	env.fog_density = 0.0025
+	env.fog_sky_affect = 0.3
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.12
+	env.adjustment_contrast = 1.05
 	var world_env := WorldEnvironment.new()
 	world_env.environment = env
 	add_child(world_env)
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55, -30, 0)
-	sun.light_energy = 1.1
+	sun.light_energy = 1.25
+	sun.light_color = Color(1.0, 0.95, 0.85)
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
@@ -111,6 +140,60 @@ func walk_bounds() -> Rect2:
 	if Game.zone2_unlocked():
 		bounds = ZONE1.merge(ZONE2).grow(-0.5)
 	return bounds
+
+
+# --- Feedback effects ---------------------------------------------------------
+
+func shake(amount: float) -> void:
+	_shake = maxf(_shake, amount)
+
+
+func vibrate(ms: int) -> void:
+	if OS.has_feature("mobile"):
+		Input.vibrate_handheld(ms)
+
+
+func fx_gather(node: Node3D, item: String, n: int, xp: int) -> void:
+	var color: Color = Style.ITEM_COLORS.get(item, Color.WHITE)
+	var top := node.global_position + Vector3(0, 1.4, 0)
+	Fx.burst(self, node.global_position + Vector3(0, 0.7, 0), color, 8)
+	Fx.float_text(self, top, "+%d %s" % [n, Data.item_name(item)], Style.TEXT)
+	Fx.float_text(self, top + Vector3(0, -0.4, 0), "+%d XP" % xp, Style.XP, 0.12)
+	hud.fly_to_bag(camera.unproject_position(top), color, n)
+	shake(0.05)
+	vibrate(15)
+
+
+func fx_drink(node: Node3D) -> void:
+	Fx.burst(self, Vector3(player.position.x, 0.2, player.position.z), Style.WATER, 10, 0.06, 2.0)
+	Fx.float_text(self, player.position + Vector3(0, 2.0, 0), "+Water", Style.WATER)
+
+
+func fx_hit(node: Node3D) -> void:
+	Fx.burst(self, node.global_position + Vector3(0, 0.4, 0), Color(0.95, 0.92, 0.85), 8, 0.06, 2.0)
+	shake(0.12)
+	vibrate(30)
+
+
+func fx_kill(node: Node3D, kind: String) -> void:
+	var d: Dictionary = Data.ANIMALS[kind]
+	var top := node.global_position + Vector3(0, 1.4, 0)
+	var line := 0
+	for item in d["drops"]:
+		Fx.float_text(self, top + Vector3(0, 0.45 * line, 0), "+%d %s" % [d["drops"][item], Data.item_name(item)], Style.TEXT, 0.12 * line)
+		hud.fly_to_bag(camera.unproject_position(top), Style.ITEM_COLORS.get(item, Color.WHITE), d["drops"][item])
+		line += 1
+	Fx.float_text(self, top + Vector3(0, -0.45, 0), "+%d XP" % Game.xp_with_boost(d["xp"]), Style.XP, 0.12 * line)
+	shake(0.22)
+	vibrate(60)
+
+
+func fx_built(node: Node3D, tier: int) -> void:
+	Fx.burst(self, node.global_position + Vector3(0, 1.0, 0), Style.ACCENT, 24, 0.1, 5.0)
+	Fx.burst(self, node.global_position + Vector3(0, 1.0, 0), Style.ENERGY, 16, 0.07, 4.0)
+	Fx.float_text(self, node.global_position + Vector3(0, 3.2, 0), "Tier %d!" % tier, Style.ACCENT)
+	shake(0.15)
+	vibrate(40)
 
 
 func open_station(station: Node3D) -> void:
@@ -129,6 +212,7 @@ func _add_prop(kind: String, pos: Vector2) -> void:
 	var r := ResourceNode.new()
 	r.kind = kind
 	r.position = Vector3(pos.x, 0, pos.y)
+	r.world = self
 	add_child(r)
 	_taken.append(Vector3(pos.x, pos.y, r.radius))
 

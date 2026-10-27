@@ -281,19 +281,14 @@ func try_attack() -> bool:
 
 func on_animal_killed(kind: String) -> void:
 	var a: Dictionary = Data.ANIMALS[kind]
-	var got := []
 	var lost := false
 	for id in a["drops"]:
 		var n: int = a["drops"][id]
 		var added := add_to_bag(id, n)
-		if added > 0:
-			got.append("%s ×%d" % [Data.item_name(id), added])
 		if added < n:
 			lost = true
-	var text := "%s hunted! %s" % [a["name"], ", ".join(got)]
 	if lost:
-		text += " (bag full, some left behind)"
-	notify(text)
+		notify("Bag full: some of the %s was left behind." % a["name"].to_lower())
 	gain_xp(a["xp"])
 	quest_event("hunt", kind, 1)
 	changed.emit()
@@ -510,13 +505,15 @@ func _update_timers(t: float) -> void:
 
 # --- XP and quests -----------------------------------------------------------
 
+## XP actually gained for a base amount, with any active boost.
+func xp_with_boost(amount: int) -> int:
+	return roundi(amount * Data.XP_BOOST_MULT) if xp_boost_left() > 0.0 else amount
+
+
 func gain_xp(amount: int) -> void:
-	if xp_boost_left() > 0.0:
-		amount = roundi(amount * Data.XP_BOOST_MULT)
-	xp += amount
+	xp += xp_with_boost(amount)
 	while level < Data.LEVEL_XP.size() and xp >= Data.LEVEL_XP[level]:
 		level += 1
-		notify("Level %d!" % level)
 		if level == Data.ZONE2_LEVEL:
 			notify("Level %d: the east forest is open!" % level)
 		leveled_up.emit(level)

@@ -2,6 +2,13 @@ extends Control
 ## Modal window for camp stations, the bag, the shop and the menu. Its content
 ## is rebuilt whenever the game state changes; timer lines tick every frame.
 
+const Style := preload("res://scripts/ui/style.gd")
+const IconButton := preload("res://scripts/ui/icon_button.gd")
+const SHEET_WIDTH := 860.0
+const SHEET_HEIGHT := 600.0
+
+var _dim: ColorRect
+var _sheet: PanelContainer
 var _title: Label
 var _content: VBoxContainer
 var _builder := Callable()
@@ -15,44 +22,59 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.55)
-	add_child(dim)
+	_dim = ColorRect.new()
+	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_dim.color = Color(0, 0, 0, 0.5)
+	_dim.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed:
+			close())
+	add_child(_dim)
 
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var box := PanelContainer.new()
-	center.add_child(box)
-	var margin := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 16)
-	box.add_child(margin)
+	# Bottom sheet that slides up.
+	_sheet = PanelContainer.new()
+	_sheet.anchor_left = 0.5
+	_sheet.anchor_right = 0.5
+	_sheet.anchor_top = 1.0
+	_sheet.anchor_bottom = 1.0
+	_sheet.offset_left = -SHEET_WIDTH / 2.0
+	_sheet.offset_right = SHEET_WIDTH / 2.0
+	_sheet.offset_top = -SHEET_HEIGHT
+	_sheet.offset_bottom = 30 # rounded bottom corners hidden off screen
+	add_child(_sheet)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
-	margin.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 12)
+	_sheet.add_child(vbox)
+
+	var handle := ColorRect.new()
+	handle.color = Color(Style.TEXT, 0.25)
+	handle.custom_minimum_size = Vector2(60, 5)
+	handle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(handle)
 
 	var header := HBoxContainer.new()
 	vbox.add_child(header)
 	_title = Label.new()
-	_title.add_theme_font_size_override("font_size", 28)
+	_title.add_theme_font_override("font", Style.font_bold())
+	_title.add_theme_font_size_override("font_size", 30)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_title)
-	var close_button := Button.new()
-	close_button.text = "Close"
-	close_button.custom_minimum_size = Vector2(120, 56)
+	var close_button := IconButton.new()
+	close_button.icon_name = "close"
+	close_button.custom_minimum_size = Vector2(60, 60)
 	close_button.pressed.connect(close)
 	header.add_child(close_button)
 
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(760, 470)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	vbox.add_child(scroll)
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_theme_constant_override("separation", 8)
+	_content.add_theme_constant_override("separation", 10)
 	scroll.add_child(_content)
+	var bottom_pad := Control.new()
+	bottom_pad.custom_minimum_size = Vector2(0, 30)
+	vbox.add_child(bottom_pad)
 
 	Game.changed.connect(_queue_rebuild)
 
@@ -66,13 +88,27 @@ func open(title: String, builder: Callable) -> void:
 	_title.text = title
 	_builder = builder
 	_confirm_reset = false
+	var was_open := visible
 	visible = true
 	_rebuild()
+	if not was_open:
+		_sheet.position.y += SHEET_HEIGHT
+		_dim.modulate.a = 0.0
+		var t := create_tween().set_parallel()
+		t.tween_property(_sheet, "position:y", _sheet.position.y - SHEET_HEIGHT, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		t.tween_property(_dim, "modulate:a", 1.0, 0.25)
 
 
 func close() -> void:
-	visible = false
+	if not visible:
+		return
 	_builder = Callable()
+	var t := create_tween().set_parallel()
+	t.tween_property(_sheet, "position:y", _sheet.position.y + SHEET_HEIGHT, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	t.tween_property(_dim, "modulate:a", 0.0, 0.2)
+	t.chain().tween_callback(func() -> void:
+		visible = false
+		_sheet.position.y -= SHEET_HEIGHT)
 
 
 func _queue_rebuild() -> void:
@@ -95,7 +131,7 @@ func _rebuild() -> void:
 
 # --- Building blocks ---------------------------------------------------------
 
-func _label(text: String, color := Color.WHITE, font_size := 20) -> Label:
+func _label(text: String, color := Style.TEXT, font_size := 20) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -105,27 +141,46 @@ func _label(text: String, color := Color.WHITE, font_size := 20) -> Label:
 	return l
 
 
-func _live_label(text_fn: Callable, color := Color(1, 0.85, 0.3)) -> void:
+func _live_label(text_fn: Callable, color := Style.ACCENT) -> void:
 	_live.append([_label(text_fn.call(), color), text_fn])
 
 
-## A line of text with buttons on the right. Each button is [text, enabled, callable].
+## A card: a title line, optional detail lines, and buttons on the right.
+## Each button is [text, enabled, callable]; the first one is the primary action.
 func _row(text: String, buttons: Array) -> void:
+	var card := PanelContainer.new()
+	card.theme_type_variation = "Card"
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var l := Label.new()
-	l.text = text
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(l)
-	for b in buttons:
+	row.add_theme_constant_override("separation", 10)
+	card.add_child(row)
+	var lines := text.split("\n")
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	row.add_child(col)
+	for i in lines.size():
+		var l := Label.new()
+		l.text = lines[i]
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if i == 0:
+			l.add_theme_font_override("font", Style.font_bold())
+		else:
+			l.add_theme_font_size_override("font_size", 17)
+			l.add_theme_color_override("font_color", Style.MUTED)
+		col.add_child(l)
+	for i in buttons.size():
+		var b: Array = buttons[i]
 		var button := Button.new()
 		button.text = b[0]
 		button.disabled = not b[1]
-		button.custom_minimum_size = Vector2(130, 56)
+		button.custom_minimum_size = Vector2(130, 58)
+		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if i == 0:
+			button.theme_type_variation = "PrimaryButton"
 		button.pressed.connect(b[2])
+		Style.add_press_juice(button)
 		row.add_child(button)
-	_content.add_child(row)
+	_content.add_child(card)
 
 
 func _separator() -> void:
@@ -162,7 +217,7 @@ func _build_station(kind: String) -> void:
 	var tiers: Array = Data.STRUCTURES[kind]["tiers"]
 	var tier := Game.structure_tier(kind)
 	_label("Tier %d of %d" % [tier, tiers.size()] if tier > 0 else "Not built yet")
-	_label(_station_effects(kind, tier), Color(0.8, 0.9, 1.0), 18)
+	_label(_station_effects(kind, tier), Style.MUTED, 18)
 
 	if Game.structure_busy(kind):
 		var next_tier: int = Game.structures[kind]["next_tier"]
@@ -175,10 +230,10 @@ func _build_station(kind: String) -> void:
 		_row("%s to tier %d\nCost: %s\nTime %s · needs level %d" % [verb, tier + 1, _cost_have(next["cost"]), fmt_time(next["time"]), next["level"]],
 			[[verb, blocker == "", Game.start_build.bind(kind)]])
 		if blocker != "":
-			_label(blocker, Color(1, 0.5, 0.45), 18)
+			_label(blocker, Style.BAD, 18)
 	else:
 		_label("Fully upgraded.")
-	_label("Materials are taken from storage first, then from your bag.", Color(0.75, 0.75, 0.75), 16)
+	_label("Materials are taken from storage first, then from your bag.", Style.MUTED, 16)
 
 	if tier == 0:
 		return
@@ -218,7 +273,7 @@ func _build_crafting() -> void:
 		if blocker != "" and blocker != "Busy":
 			text += "\n" + blocker
 		_row(text, [["Craft", blocker == "", Game.start_craft.bind(id)]])
-	_label("Tools are equipped when done. Other crafts go to storage.", Color(0.75, 0.75, 0.75), 16)
+	_label("Tools are equipped when done. Other crafts go to storage.", Style.MUTED, 16)
 
 
 func _build_storage() -> void:
@@ -227,7 +282,7 @@ func _build_storage() -> void:
 		[["Deposit all", not Game.inventory.is_empty(), Game.deposit_all]])
 	_separator()
 	if Game.storage.is_empty():
-		_label("Storage is empty.", Color(0.75, 0.75, 0.75))
+		_label("Storage is empty.", Style.MUTED)
 	for id in Game.storage:
 		var n: int = Game.storage[id]
 		_row("%s ×%d" % [Data.item_name(id), n],
@@ -251,10 +306,10 @@ func _build_board() -> void:
 		_label("All quests done! More come with the next zones.")
 		return
 	_separator()
-	_label(q["text"], Color(1, 0.9, 0.5), 26)
+	_label(q["text"], Style.ACCENT, 26)
 	_label("Progress: %d / %d" % [Game.quest_progress_count(), q["count"]])
 	_label("Reward: %d XP" % q["xp"])
-	_label("Quests complete on their own as you play.", Color(0.75, 0.75, 0.75), 16)
+	_label("Quests complete on their own as you play.", Style.MUTED, 16)
 
 
 # --- Bag, shop, menu ---------------------------------------------------------
@@ -266,7 +321,7 @@ func open_bag() -> void:
 func _build_bag() -> void:
 	_label("Weight: %.1f / %d kg" % [Game.carry_weight(), Game.carry_limit()])
 	if Game.inventory.is_empty():
-		_label("Your bag is empty.", Color(0.75, 0.75, 0.75))
+		_label("Your bag is empty.", Style.MUTED)
 	for id in Game.inventory:
 		var buttons := []
 		if Data.ITEMS[id].has("food"):
@@ -284,7 +339,7 @@ func open_shop() -> void:
 
 
 func _build_shop() -> void:
-	_label("PLACEHOLDER: no real ads and no real payments yet.", Color(1, 0.6, 0.4), 18)
+	_label("PLACEHOLDER: no real ads and no real payments yet.", Style.ACCENT, 18)
 	_row("Watch an ad: +%d energy (%d left today)" % [Data.AD_ENERGY_REWARD, Game.ads_left_today()],
 		[["Watch", Game.ads_left_today() > 0, Game.watch_ad_for_energy]])
 	_separator()
@@ -308,7 +363,7 @@ func open_menu() -> void:
 
 func _build_menu() -> void:
 	_label("Hunting Game — proof of concept v%s" % ProjectSettings.get_setting("application/config/version"))
-	_label("Move with the left side of the screen (or WASD). Tap the round button (or Space) to chop, mine, pick, drink, hunt or open a camp station. Hold it to repeat.", Color(0.8, 0.9, 1.0), 18)
+	_label("Move with the left side of the screen (or WASD). Tap the round button (or Space) to chop, mine, pick, drink, hunt or open a camp station. Hold it to repeat.", Style.MUTED, 18)
 	_separator()
 	_row("Progress is saved every few seconds.", [["Save now", true, func() -> void:
 		Game.save_game()

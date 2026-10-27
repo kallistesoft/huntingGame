@@ -3,6 +3,7 @@ extends Node3D
 ## timers), or the quest board. Interacting opens its panel in the HUD.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
+const Style := preload("res://scripts/ui/style.gd")
 
 var kind := "crafting"
 var world: Node3D
@@ -44,6 +45,14 @@ func action_label() -> String:
 	return "Open %s" % title().to_lower()
 
 
+func action_icon() -> String:
+	if kind == "board":
+		return "quest"
+	if Game.structure_tier(kind) == 0 and not Game.structure_busy(kind):
+		return "build"
+	return "door"
+
+
 func interact(_player: Node3D) -> void:
 	world.open_station(self)
 
@@ -53,8 +62,14 @@ func _refresh() -> void:
 		return
 	var tier := Game.structure_tier(kind)
 	if tier != _shown_tier:
+		var upgraded := _shown_tier >= 0 and tier > _shown_tier
 		_shown_tier = tier
 		_build_structure(tier)
+		if upgraded:
+			world.fx_built(self, tier)
+			var target := _model.scale
+			_model.scale = target * 0.6
+			_model.create_tween().tween_property(_model, "scale", target, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	var text := title() if tier > 0 else "Build: " + title()
 	if tier > 0:
 		text += " " + "★".repeat(tier)

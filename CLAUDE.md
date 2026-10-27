@@ -17,7 +17,11 @@ What the POC covers:
 - Shop with **placeholder packs** (Starter, Hunter): no real payment.
 - Save to `user://save.json` every 10 s and when the app is paused/closed. Timers use real-world time, so building, crafting and sleep finish while the app is closed; hunger/thirst only drain while it's open.
 
-Not done yet: real AdMob and billing plugins, Android export preset and signing, sounds, real 3D models and animations.
+- Game feel: floating "+1 Wood / +2 XP" text, chips and dust bursts, items flying into the Bag button, camera shake and phone vibration on hits, buildings pop with sparks when a tier finishes, level-up banner, smooth bars, press animation on buttons. Animals are animated in code (hop, gallop, idle sniff, fall over on death).
+- Look: procedural sky, glow, light fog, colour adjustment, swaying trees/grass/flowers (shader), animated pond water, grass tufts via MultiMesh.
+- UI: Nunito font (SIL OFL, `assets/fonts/`), rounded cards and pills, vector icons drawn in code (`scripts/ui/icons.gd`), level badge with XP ring, round icon buttons, contextual action button showing the tool icon, bottom-sheet windows that slide up. Palette and theme in `scripts/ui/style.gd`.
+
+Not done yet: real AdMob and billing plugins, Android export preset and signing, sounds, real 3D models, day/night cycle. Known issue: trees between the camera and the hunter can hide the hunter.
 
 ### Code layout
 
@@ -25,7 +29,9 @@ Not done yet: real AdMob and billing plugins, Android export preset and signing,
 - `scripts/autoload/game_state.gd` (`Game`): player progress, survival, timers, quests, save/load. Game rules live here, not in nodes.
 - `scripts/autoload/ad_service.gd` (`AdService`), `store_service.gd` (`StoreService`): placeholders; AdMob and billing plug in here only.
 - `scripts/world/`: `main.gd` builds the world, camera and lights; `player.gd`, `animal.gd`, `resource_node.gd`, `station.gd`, `ground.gd`; `shapes.gd` holds the placeholder-shape helpers.
-- `scripts/ui/`: `hud.gd` (bars, buttons, touch controls, sleep prompt), `panel.gd` (station, bag, shop, menu windows).
+- `scripts/ui/`: `hud.gd` (stats, quest card, buttons, touch controls, sleep prompt, effects), `panel.gd` (station, bag, shop, menu bottom sheets), `style.gd` (palette, font, theme), `icons.gd` + `icon_rect.gd` + `icon_button.gd` (vector icons).
+- `scripts/world/fx.gd`: floating text and particle bursts; `main.gd` has the `fx_*` hooks, camera shake and vibration.
+- Visual previews here use Godot's OpenGL (Compatibility) renderer because the cloud has no Vulkan; the game itself uses the Mobile renderer, so check lighting on a real phone. Filmic tone-mapping looked washed out in previews, so the tone-mapper is left at Linear.
 - `tests/smoke_test.tscn`: plays the core loop and checks it.
 
 ### Running

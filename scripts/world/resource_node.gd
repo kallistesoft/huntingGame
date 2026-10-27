@@ -9,6 +9,7 @@ var kind := "tree":
 		kind = value
 		radius = 1.5 if kind == "pond" else 0.5
 var radius := 0.5
+var world: Node3D
 var remaining := 0
 var _regrow_at := 0.0
 var _full: Node3D # parts hidden once gathered out
@@ -45,14 +46,24 @@ func action_label() -> String:
 		_: return "Pick berries"
 
 
+func action_icon() -> String:
+	match kind:
+		"pond": return "water"
+		"tree": return "axe"
+		"rock": return "pick"
+		_: return "berries"
+
+
 func interact(_player: Node3D) -> void:
 	if kind == "pond":
 		Game.drink()
+		world.fx_drink(self)
 		return
 	var got := Game.gather(kind, remaining)
 	if got <= 0:
 		return
 	remaining -= got
+	world.fx_gather(self, Data.RESOURCES[kind]["item"], got, Game.xp_with_boost(Data.RESOURCES[kind]["xp"]))
 	if remaining <= 0:
 		_regrow_at = Game.now() + Data.RESOURCES[kind]["respawn"]
 	_refresh()
@@ -71,12 +82,19 @@ func _refresh() -> void:
 func _build_shape() -> void:
 	match kind:
 		"pond":
-			Shapes.add(_full, Shapes.cylinder(radius, 0.06), Color(0.25, 0.5, 0.85), Vector3(0, 0.03, 0))
+			var water := Shapes.add(_full, Shapes.cylinder(radius, 0.06), Color.WHITE, Vector3(0, 0.03, 0))
+			water.material_override = Shapes.water_material(radius)
+			for i in 10: # stones around the edge
+				var a := i * TAU / 10.0 + 0.3
+				Shapes.add(_full, Shapes.sphere(0.18), Color(0.55, 0.55, 0.57),
+					Vector3(cos(a) * (radius + 0.05), 0.05, sin(a) * (radius + 0.05)), Vector3(1.2, 0.6, 1.0))
 		"tree":
 			var trunk := Color(0.4, 0.26, 0.12)
 			Shapes.add(_full, Shapes.cylinder(0.18, 1.6, 0.14), trunk, Vector3(0, 0.8, 0))
-			Shapes.add(_full, Shapes.cylinder(0.9, 1.8, 0.0), Color(0.16, 0.42, 0.16), Vector3(0, 2.2, 0))
-			Shapes.add(_full, Shapes.cylinder(0.7, 1.4, 0.0), Color(0.2, 0.5, 0.2), Vector3(0, 3.0, 0))
+			var low := Shapes.add(_full, Shapes.cylinder(0.9, 1.8, 0.0), Color.WHITE, Vector3(0, 2.2, 0))
+			low.material_override = Shapes.sway_material(Color(0.16, 0.42, 0.16), 0.02)
+			var high := Shapes.add(_full, Shapes.cylinder(0.7, 1.4, 0.0), Color.WHITE, Vector3(0, 3.0, 0))
+			high.material_override = Shapes.sway_material(Color(0.2, 0.5, 0.2), 0.02)
 			Shapes.add(_empty, Shapes.cylinder(0.2, 0.3), trunk, Vector3(0, 0.15, 0))
 		"rock":
 			var grey := Color(0.5, 0.5, 0.52)
@@ -85,7 +103,7 @@ func _build_shape() -> void:
 			Shapes.add(_empty, Shapes.sphere(0.18), grey, Vector3(0, 0.1, 0), Vector3(1, 0.6, 1))
 		"bush":
 			var leaves := Color(0.2, 0.5, 0.22)
-			Shapes.add(_full, Shapes.sphere(0.5), leaves, Vector3(0, 0.4, 0))
+			Shapes.add(_full, Shapes.sphere(0.5), Color.WHITE, Vector3(0, 0.4, 0)).material_override = Shapes.sway_material(leaves, 0.05)
 			for p in [Vector3(0.3, 0.6, 0.3), Vector3(-0.35, 0.5, 0.2), Vector3(0.1, 0.8, -0.3), Vector3(-0.1, 0.45, 0.45)]:
 				Shapes.add(_full, Shapes.sphere(0.08), Color(0.85, 0.1, 0.2), p)
 			Shapes.add(_empty, Shapes.sphere(0.45), leaves.darkened(0.2), Vector3(0, 0.35, 0))

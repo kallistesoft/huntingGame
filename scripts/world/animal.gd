@@ -6,6 +6,7 @@ extends Node3D
 ## animal falls over, puffs and fades before it is gone.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
+const Fx := preload("res://scripts/world/fx.gd")
 const HIT_COLOR := Color(1, 1, 1)
 const DEATH_FALL := 0.35
 const DEATH_LIE := 0.7
@@ -139,12 +140,17 @@ func action_label() -> String:
 	return "Hunt %s" % Data.ANIMALS[kind]["name"].to_lower()
 
 
+func action_icon() -> String:
+	return Game.weapon()
+
+
 func interact(_player: Node3D) -> void:
 	if not Game.try_attack():
 		return
 	hp -= Game.weapon_damage()
 	_flash = 0.15
 	_set_flash(true)
+	world.fx_hit(self)
 	if hp > 0:
 		Game.notify("Hit! The %s is hurt." % Data.ANIMALS[kind]["name"].to_lower())
 		_resting = 0.0
@@ -152,6 +158,7 @@ func interact(_player: Node3D) -> void:
 	alive = false
 	_respawn_at = Game.now() + Data.ANIMALS[kind]["respawn"]
 	Game.on_animal_killed(kind)
+	world.fx_kill(self, kind)
 	_play_death()
 
 
@@ -170,24 +177,7 @@ func _play_death() -> void:
 
 
 func _puff() -> void:
-	var p := CPUParticles3D.new()
-	p.one_shot = true
-	p.amount = 14
-	p.lifetime = 0.6
-	p.explosiveness = 1.0
-	p.mesh = Shapes.sphere(0.08)
-	p.material_override = Shapes.material(Color(0.9, 0.88, 0.82))
-	p.direction = Vector3.UP
-	p.spread = 70.0
-	p.initial_velocity_min = 1.0
-	p.initial_velocity_max = 2.2
-	p.gravity = Vector3(0, -2.0, 0)
-	p.scale_amount_min = 0.6
-	p.scale_amount_max = 1.4
-	p.position = Vector3(0, Data.ANIMALS[kind]["size"], 0)
-	add_child(p)
-	p.emitting = true
-	p.finished.connect(p.queue_free)
+	Fx.burst(self, Vector3(0, Data.ANIMALS[kind]["size"], 0), Color(0.9, 0.88, 0.82), 14, 0.12, 2.2, -2.0)
 
 
 func _respawn() -> void:

@@ -24,6 +24,10 @@ func _ready() -> void:
 	camp_label.no_depth_test = false
 	Shapes.label(self, "EAST FOREST", Vector3(zone2.position.x + 4, 1.5, zone2.position.y + 3), 96)
 
+	_add_grass(zone1, 1400, Color(0.42, 0.62, 0.3))
+	_add_grass(zone2, 1300, Color(0.3, 0.5, 0.26))
+	_add_flowers(zone1, 160)
+
 	_fence = Node3D.new()
 	add_child(_fence)
 	var x := zone2.position.x
@@ -44,3 +48,58 @@ func _plane(rect: Rect2, color: Color, height: float) -> void:
 	mesh.size = rect.size
 	var center := rect.get_center()
 	Shapes.add(self, mesh, color, Vector3(center.x, height, center.y))
+
+
+## Swaying grass tufts, drawn in one batch with a MultiMesh. Kept off the camp.
+func _add_grass(zone: Rect2, count: int, color: Color) -> void:
+	var blade := Shapes.cylinder(0.05, 0.4, 0.0)
+	blade.radial_segments = 4
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = blade
+	var spots := []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(zone.position.x) + 11
+	while spots.size() < count:
+		var p := Vector2(rng.randf_range(zone.position.x, zone.end.x), rng.randf_range(zone.position.y, zone.end.y))
+		if not camp.grow(0.3).has_point(p):
+			spots.append(p)
+	mm.instance_count = spots.size() * 3
+	var i := 0
+	for p in spots:
+		var tint := color * rng.randf_range(0.8, 1.15)
+		for b in 3: # three blades per tuft
+			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.35, 0.35))
+			var size := rng.randf_range(0.7, 1.3)
+			var offset := Vector3(rng.randf_range(-0.12, 0.12), 0.2 * size, rng.randf_range(-0.12, 0.12))
+			mm.set_instance_transform(i, Transform3D(basis.scaled(Vector3.ONE * size), Vector3(p.x, 0, p.y) + offset))
+			mm.set_instance_color(i, Color(tint, 1.0))
+			i += 1
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = Shapes.sway_material(Color.WHITE, 0.25)
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+
+
+func _add_flowers(zone: Rect2, count: int) -> void:
+	var colors := [Color(1, 0.95, 0.5), Color(1, 1, 1), Color(0.85, 0.6, 1.0), Color(1, 0.6, 0.6)]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	var head := Shapes.sphere(0.06)
+	for c in colors:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = head
+		mm.instance_count = count / colors.size()
+		for i in mm.instance_count:
+			var p := Vector2(rng.randf_range(zone.position.x, zone.end.x), rng.randf_range(zone.position.y, zone.end.y))
+			if camp.grow(0.3).has_point(p):
+				p.y += camp.size.y + 1.0
+			mm.set_instance_transform(i, Transform3D(Basis(), Vector3(p.x, 0.22, p.y)))
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = Shapes.sway_material(c, 0.25)
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
