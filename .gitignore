@@ -9,3 +9,6 @@
 # Signing keys never go in git
 *.keystore
 *.jks
+
+# Exported builds
+/build/
