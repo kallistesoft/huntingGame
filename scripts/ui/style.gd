@@ -12,6 +12,7 @@ const GOOD := Color("8ad07a")
 const BAD := Color("ff7b69")
 const SHADE := Color(0, 0, 0, 0.42) # translucent pills over the 3D view
 
+const HEALTH := Color("ff5d5d")
 const ENERGY := Color("ffd23f")
 const FOOD := Color("f08a4b")
 const WATER := Color("4fb3ff")

@@ -10,6 +10,8 @@ signal changed
 signal message(text: String)
 signal leveled_up(level: int)
 signal demo_finished
+signal died
+signal respawned(at_house: bool) # after giving up: the world moves the hunter home
 
 const SAVE_PATH := "user://save.json"
 const SAVE_VERSION := 1
@@ -18,6 +20,8 @@ const AUTOSAVE_SECONDS := 10.0
 var level := 1
 var xp := 0
 var energy := Data.START_ENERGY
+var health := Data.MAX_HEALTH
+var protected_until := 0.0 # no damage until then (after getting back up)
 var hunger := 100.0
 var thirst := 100.0
 var inventory := {} # item id -> count, carried
@@ -54,6 +58,8 @@ func _process(delta: float) -> void:
 	var drain := Data.SLEEP_NEED_RATE if is_sleeping() else 1.0
 	hunger = maxf(0.0, hunger - Data.HUNGER_PER_SEC * delta * drain)
 	thirst = maxf(0.0, thirst - Data.THIRST_PER_SEC * delta * drain)
+	if not is_dead() and hunger > Data.LOW_NEED and thirst > Data.LOW_NEED:
+		health = minf(Data.MAX_HEALTH, health + Data.HEALTH_REGEN * delta)
 	_update_timers(t)
 	_autosave_left -= delta
 	if _autosave_left <= 0.0:
@@ -234,7 +240,51 @@ func add_to_bag(id: String, n: int) -> int:
 
 # --- Actions -----------------------------------------------------------------
 
+func is_dead() -> bool:
+	return health <= 0.0
+
+
+func damage(amount: float, source: String) -> void:
+	if is_dead() or now() < protected_until:
+		return
+	health = maxf(0.0, health - amount)
+	notify("%s -%d health" % [source, amount])
+	if is_dead():
+		died.emit()
+	changed.emit()
+
+
+## Death choice 1: watch a rewarded ad and get back up where you fell.
+func revive_with_ad() -> void:
+	if not is_dead() or AdService.is_showing():
+		return
+	AdService.show_rewarded(func(rewarded: bool) -> void:
+		if not rewarded or not is_dead():
+			return
+		health = Data.MAX_HEALTH * Data.REVIVE_HEALTH
+		protected_until = now() + Data.REVIVE_GRACE
+		notify("You get back up!")
+		changed.emit()
+		save_game())
+
+
+## Death choice 2: wake up in the house (or at camp) and lose everything in the bag.
+func give_up() -> void:
+	if not is_dead():
+		return
+	inventory = {}
+	health = Data.MAX_HEALTH
+	sleep_until = 0.0
+	var at_house := structure_tier("house") > 0
+	notify("You wake up %s. Everything in your bag is lost." % ("in your house" if at_house else "at camp"))
+	respawned.emit(at_house)
+	changed.emit()
+	save_game()
+
+
 func _can_act() -> bool:
+	if is_dead():
+		return false
 	if is_sleeping():
 		return false
 	if energy <= 0.0:
@@ -284,9 +334,7 @@ func try_attack() -> bool:
 
 ## The Great Boar's charge connected.
 func on_boss_hit_player() -> void:
-	energy = maxf(0.0, energy - Data.BOSS["hit_energy"])
-	notify("The boar rams you! -%d energy" % Data.BOSS["hit_energy"])
-	changed.emit()
+	damage(Data.BOSS["hit_damage"], "The boar rams you!")
 
 
 func on_boss_killed() -> void:
@@ -525,6 +573,7 @@ func _update_timers(t: float) -> void:
 	if sleep_until > 0.0 and t >= sleep_until:
 		sleep_until = 0.0
 		energy = max_energy()
+		health = Data.MAX_HEALTH
 		notify("You wake up rested.")
 		changed.emit()
 
@@ -617,6 +666,8 @@ func _reset_state() -> void:
 	level = 1
 	xp = 0
 	energy = Data.START_ENERGY
+	health = Data.MAX_HEALTH
+	protected_until = 0.0
 	hunger = 100.0
 	thirst = 100.0
 	inventory = {}
@@ -643,7 +694,7 @@ func save_game() -> void:
 	var data := {
 		"version": SAVE_VERSION,
 		"level": level, "xp": xp,
-		"energy": energy, "hunger": hunger, "thirst": thirst,
+		"energy": energy, "health": health, "hunger": hunger, "thirst": thirst,
 		"inventory": inventory, "storage": storage, "tools": tools.keys(),
 		"structures": structures, "craft_job": craft_job,
 		"sleep_until": sleep_until, "ad_day": ad_day, "ads_today": ads_today,
@@ -669,6 +720,7 @@ func load_game() -> void:
 	level = int(data.get("level", 1))
 	xp = int(data.get("xp", 0))
 	energy = float(data.get("energy", Data.START_ENERGY))
+	health = float(data.get("health", Data.MAX_HEALTH))
 	hunger = float(data.get("hunger", 100.0))
 	thirst = float(data.get("thirst", 100.0))
 	inventory = _int_dict(data.get("inventory", {}))

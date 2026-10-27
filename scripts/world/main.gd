@@ -7,6 +7,7 @@ const ZONE1 := Rect2(0, 0, 45, 32.5)
 const ZONE2 := Rect2(45, 0, 40, 32.5)
 const CAMP := Rect2(5.5, 11, 13, 10.5)
 const PLAYER_START := Vector2(12, 16.5)
+const HOUSE_SPOT := Vector2(2.75, 7.75) # house position inside the camp
 const WORLD_SEED := 7
 const CAMERA_OFFSET := Vector3(0, 13, 9) # above and behind the hunter
 const CAMERA_FOLLOW := 6.0
@@ -57,7 +58,7 @@ func _ready() -> void:
 
 	_add_station("crafting", CAMP.position + Vector2(2.75, 2.75))
 	_add_station("storage", CAMP.position + Vector2(7.5, 2.75))
-	_add_station("house", CAMP.position + Vector2(2.75, 7.75))
+	_add_station("house", CAMP.position + HOUSE_SPOT)
 	_add_station("board", CAMP.position + Vector2(10, 7.75))
 
 	# Keep the boar's lair and the mountain pass clear of trees and rocks.
@@ -90,6 +91,8 @@ func _ready() -> void:
 	_spawn_animals("rabbit", ZONE2, 4)
 	_spawn_animals("squirrel", ZONE2, 3)
 	_spawn_animals("deer", ZONE2, 4)
+
+	Game.respawned.connect(_on_respawned)
 
 	var ui := CanvasLayer.new()
 	add_child(ui)
@@ -150,6 +153,15 @@ func _add_environment() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
+
+
+## After giving up: back to the house door, or the middle of camp.
+func _on_respawned(at_house: bool) -> void:
+	var spot := PLAYER_START
+	if at_house:
+		spot = CAMP.position + HOUSE_SPOT + Vector2(0, 1.8) # in front of the door
+	player.position = Vector3(spot.x, 0, spot.y)
+	camera.position = player.position + CAMERA_OFFSET
 
 
 ## Where the hunter may walk: zone 1, plus zone 2 once unlocked.

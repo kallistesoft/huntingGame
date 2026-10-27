@@ -14,7 +14,8 @@ What the POC covers:
 - Camp: crafting place, storage, house, each 3 tiers built on real-time timers. Crafting recipes (spear, axe, pickaxe, cooked meat, bag, bow).
 - Hunting with spear/bow; animals flee, then stop to rest. Drops: meat, hide, fur, antler.
 - Quest board with 13 linear quests, XP and levels. Quest types: gather, harvest an animal's drop ("Harvest 2 rabbit fur"), craft, build, reach a level, defeat the boss, travel.
-- **Boss: the Great Boar** in its lair at the far east of zone 2. It paws the ground (red glow), then charges; a hit costs 15 energy and knocks the hunter back. After a charge it is dizzy and takes double damage. Heals slowly if the hunter leaves. Drops tusks, hide, meat, 150 XP. HUD shows its health bar nearby.
+- **Boss: the Great Boar** in its lair at the far east of zone 2. It paws the ground (red glow), then charges; a hit does 30 damage and knocks the hunter back. After a charge it is dizzy and takes double damage. Heals slowly if the hunter leaves. Drops tusks, hide, meat, 150 XP. HUD shows its health bar nearby.
+- **Health and getting knocked out** (owner's rule, 2026-10-27): health 0–100, regenerates slowly while fed and watered, full after sleep. At 0 the hunter is knocked out and chooses: **watch a rewarded ad** → get back up where they fell with 50% health (2 s protection), or **give up** → wake in the house (or at camp) with full health and **lose everything in the bag**. Storage and tools are kept. Only the boar does damage so far; hunger/thirst at 0 still only slow the hunter.
 - **Mountain pass** (next area gate) at the east edge: needs level 5 + the boar defeated. In the demo, crossing it shows the **End of the demo** screen ("Keep playing" returns to the game).
 - Shop with **placeholder packs** (Starter, Hunter): no real payment.
 - Save to `user://save.json` every 10 s and when the app is paused/closed. Timers use real-world time, so building, crafting and sleep finish while the app is closed; hunger/thirst only drain while it's open.
@@ -105,7 +106,7 @@ Placeholder art first; real art to be sourced later (asset packs or an artist).
 ## Open questions
 
 - Number of zones and level gates.
-- Death / failure rules when hunger or thirst run out.
+- Whether hunger or thirst at 0 should also hurt (today they only slow the hunter). Whether tools should be lost when giving up.
 - Whether build/craft timers also keep running while the app is closed (the sleep timer does).
 - Energy cost per action, sleep duration, and a daily cap on energy ads.
 - In-app purchase offers beyond level-up packs (e.g. refill energy, skip sleep, remove interstitials, bigger bags, cosmetics).

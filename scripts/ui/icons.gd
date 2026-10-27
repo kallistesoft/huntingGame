@@ -3,7 +3,7 @@ extends RefCounted
 ## centred on `c`, `s` pixels across, on any CanvasItem during its _draw().
 
 const NAMES := [
-	"energy", "food", "water", "bag", "xp", "sleep", "shop", "menu", "close",
+	"health", "energy", "food", "water", "bag", "xp", "sleep", "shop", "menu", "close",
 	"axe", "pick", "berries", "spear", "bow", "door", "build", "quest", "check",
 ]
 
@@ -13,6 +13,10 @@ static func draw(ci: CanvasItem, icon: String, c: Vector2, s: float, color: Colo
 	var p := func(x: float, y: float) -> Vector2: return c + Vector2(x, y) * h
 	var w := maxf(2.0, s * 0.11) # stroke width
 	match icon:
+		"health":
+			ci.draw_circle(p.call(-0.42, -0.3), h * 0.5, color)
+			ci.draw_circle(p.call(0.42, -0.3), h * 0.5, color)
+			ci.draw_colored_polygon(PackedVector2Array([p.call(-0.9, -0.15), p.call(0.9, -0.15), p.call(0, 0.9)]), color)
 		"energy":
 			ci.draw_colored_polygon(PackedVector2Array([p.call(0.2, -1.0), p.call(-0.6, 0.15), p.call(-0.05, 0.15),
 				p.call(-0.25, 1.0), p.call(0.6, -0.2), p.call(0.05, -0.2), p.call(0.3, -1.0)]), color)

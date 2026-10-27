@@ -12,7 +12,7 @@ const IconButton := preload("res://scripts/ui/icon_button.gd")
 const Shapes := preload("res://scripts/world/shapes.gd")
 const JOY_RADIUS := 80.0
 const ACTION_RADIUS := 78.0
-const TOP_BAR_HEIGHT := 230.0
+const TOP_BAR_HEIGHT := 258.0
 const MESSAGE_SECONDS := 2.6
 const MAX_MESSAGES := 3
 
@@ -37,6 +37,9 @@ var _boss_bar: ProgressBar
 var _boss_label: Label
 var _boss_shown := 0.0
 var _end_screen: Control
+var _death_screen: Control
+var _hurt_flash: ColorRect
+var _shown_health := 0.0
 var _panel: Control
 
 var _joy_index := -1
@@ -86,6 +89,10 @@ func _ready() -> void:
 	_build_boss_bar()
 	_build_end_screen()
 	Game.demo_finished.connect(_show_end_screen)
+	_build_death_screen()
+	Game.died.connect(_show_death_screen)
+	Game.changed.connect(_on_changed)
+	_shown_health = Game.health
 
 	_panel = GamePanel.new()
 	add_child(_panel)
@@ -111,7 +118,7 @@ func _build_stats() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	row.add_child(col)
-	for spec in [["energy", Style.ENERGY], ["food", Style.FOOD], ["water", Style.WATER], ["bag", Style.BAG]]:
+	for spec in [["health", Style.HEALTH], ["energy", Style.ENERGY], ["food", Style.FOOD], ["water", Style.WATER], ["bag", Style.BAG]]:
 		var line := HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		col.add_child(line)
@@ -141,7 +148,7 @@ func _build_stats() -> void:
 func _build_quest() -> void:
 	_quest_card = PanelContainer.new()
 	_quest_card.theme_type_variation = "Pill"
-	_quest_card.position = Vector2(14, 168)
+	_quest_card.position = Vector2(14, 196)
 	_quest_card.custom_minimum_size = Vector2(368, 0)
 	_quest_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_quest_card)
@@ -287,6 +294,75 @@ func _build_end_screen() -> void:
 	col.add_child(keep)
 
 
+func _build_death_screen() -> void:
+	_hurt_flash = ColorRect.new()
+	_hurt_flash.color = Color(0.9, 0.05, 0.05, 0.0)
+	_hurt_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_hurt_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_hurt_flash)
+
+	_death_screen = ColorRect.new()
+	_death_screen.color = Color(0.18, 0.02, 0.02, 0.82)
+	_death_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_death_screen.mouse_filter = Control.MOUSE_FILTER_STOP
+	_death_screen.visible = false
+	add_child(_death_screen)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_death_screen.add_child(center)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 18)
+	center.add_child(col)
+	var icon := IconRect.new()
+	icon.icon = "health"
+	icon.color = Style.HEALTH
+	icon.custom_minimum_size = Vector2(80, 80)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(icon)
+	var title := Label.new()
+	title.text = "You were knocked out"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", Style.font_bold())
+	title.add_theme_font_size_override("font_size", 52)
+	col.add_child(title)
+	var revive := Button.new()
+	revive.name = "Revive"
+	revive.text = "Watch an ad: get back up with %d%% health" % roundi(Data.REVIVE_HEALTH * 100.0)
+	revive.theme_type_variation = "PrimaryButton"
+	revive.custom_minimum_size = Vector2(520, 70)
+	revive.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	revive.pressed.connect(Game.revive_with_ad)
+	Style.add_press_juice(revive)
+	col.add_child(revive)
+	var give_up := Button.new()
+	give_up.name = "GiveUp"
+	give_up.custom_minimum_size = Vector2(520, 62)
+	give_up.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	give_up.pressed.connect(Game.give_up)
+	Style.add_press_juice(give_up)
+	col.add_child(give_up)
+
+
+func _show_death_screen() -> void:
+	_release_touches()
+	_panel.close()
+	var give_up: Button = _death_screen.find_child("GiveUp", true, false)
+	give_up.text = "Give up: wake up %s, lose your bag" % ("in the house" if Game.structure_tier("house") > 0 else "at camp")
+	_death_screen.visible = true
+	_death_screen.modulate.a = 0.0
+	_death_screen.create_tween().tween_property(_death_screen, "modulate:a", 1.0, 0.5)
+
+
+## Red flash when hurt; hides the death screen once the hunter is back up.
+func _on_changed() -> void:
+	if Game.health < _shown_health - 0.5:
+		_hurt_flash.color.a = 0.35
+		_hurt_flash.create_tween().tween_property(_hurt_flash, "color:a", 0.0, 0.4)
+	_shown_health = Game.health
+	if _death_screen.visible and not Game.is_dead():
+		_death_screen.visible = false
+
+
 func _show_end_screen() -> void:
 	_release_touches()
 	var body: Label = _end_screen.find_child("Body", true, false)
@@ -319,6 +395,7 @@ func open_station(kind: String) -> void:
 
 func _process(delta: float) -> void:
 	var smooth := minf(1.0, 8.0 * delta)
+	_set_stat("health", Game.health, Data.MAX_HEALTH, "%d/%d" % [ceili(Game.health), Data.MAX_HEALTH], smooth)
 	_set_stat("energy", Game.energy, Game.max_energy(), "%d/%d" % [ceili(Game.energy), Game.max_energy()], smooth)
 	_set_stat("food", Game.hunger, 100.0, "%d%%" % ceili(Game.hunger), smooth)
 	_set_stat("water", Game.thirst, 100.0, "%d%%" % ceili(Game.thirst), smooth)
@@ -346,7 +423,7 @@ func _process(delta: float) -> void:
 	_update_prompt()
 	_update_boss_bar(smooth)
 
-	if _panel.visible or AdService.is_showing() or _end_screen.visible:
+	if _panel.visible or AdService.is_showing() or _end_screen.visible or _death_screen.visible:
 		_release_touches()
 	elif _act_index != -1:
 		player.do_action() # holding the button repeats, limited by the cooldown
@@ -360,7 +437,7 @@ func _set_stat(stat: String, value: float, max_value: float, text: String, smoot
 	bar.max_value = max_value
 	bar.value = s["shown"]
 	s["label"].text = text
-	var low := stat in ["energy", "food", "water"] and value < max_value * 0.2
+	var low := stat in ["health", "energy", "food", "water"] and value < max_value * 0.2
 	s["label"].add_theme_color_override("font_color", Style.BAD if low else Style.TEXT)
 
 
@@ -467,7 +544,7 @@ func _input(event: InputEvent) -> void:
 			if event.index == _act_index:
 				_act_index = -1
 			return
-		if _panel.visible or AdService.is_showing() or _end_screen.visible or _prompt_hit(event.position):
+		if _panel.visible or AdService.is_showing() or _end_screen.visible or _death_screen.visible or _prompt_hit(event.position):
 			return
 		if event.position.distance_to(_action_center()) <= ACTION_RADIUS:
 			_act_index = event.index

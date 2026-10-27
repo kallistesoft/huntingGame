@@ -1,4 +1,6 @@
 extends Node
+
+const Shapes := preload("res://scripts/world/shapes.gd")
 ## Plays through the core loop automatically and checks the results.
 ## Run headless from the project folder:
 ##   godot --headless --path . res://tests/smoke_test.tscn
@@ -24,6 +26,7 @@ func _ready() -> void:
 	await _test_panels()
 	_test_collect_quest()
 	_test_levels_and_zone()
+	await _test_death()
 	await _test_boss_and_pass()
 	_test_save_load()
 
@@ -202,14 +205,47 @@ func _test_levels_and_zone() -> void:
 	check(world.walk_bounds().end.x > world.ZONE1.end.x, "east forest is walkable")
 
 
+func _test_death() -> void:
+	print("Death: revive with an ad, or give up")
+	Game.inventory = {"wood": 3, "raw_meat": 2}
+	Game.storage = {"stone": 4}
+	Game.damage(1000.0, "Test")
+	check(Game.is_dead(), "hunter knocked out at 0 health")
+	await _frames(2)
+	check(world.hud._death_screen.visible, "knocked-out screen shown")
+	var wood_before: int = Game.inventory.get("wood", 0)
+	var tree := _nearest(func(n: Node) -> bool: return n.get("kind") == "tree" and n.is_available())
+	await _act_on(tree)
+	check(Game.inventory.get("wood", 0) == wood_before, "can't act while knocked out")
+
+	Game.revive_with_ad()
+	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
+	check(not Game.is_dead() and absf(Game.health - Data.MAX_HEALTH * Data.REVIVE_HEALTH) < 2.0, "ad revive gives 50% health")
+	check(Game.inventory.get("raw_meat", 0) == 2, "ad revive keeps the bag")
+	await _frames(2)
+	check(not world.hud._death_screen.visible, "knocked-out screen closed")
+	Game.damage(10.0, "Test")
+	check(Game.health > Data.MAX_HEALTH * Data.REVIVE_HEALTH - 5.0, "short protection after getting back up")
+
+	Game.protected_until = 0.0
+	player.position = Vector3(40, 0, 20)
+	Game.damage(1000.0, "Test")
+	Game.give_up()
+	await _frames(2)
+	check(not Game.is_dead() and Game.health == Data.MAX_HEALTH, "give up: full health")
+	check(Game.inventory.is_empty(), "give up: bag is lost")
+	check(Game.storage.get("stone", 0) == 4, "give up: storage is kept")
+	check(Shapes.flat(player).distance_to(world.CAMP.get_center()) < 8.0, "give up: back at camp")
+
+
 func _test_boss_and_pass() -> void:
 	print("Boss and mountain pass")
 	var boss: Node3D = world.boss
 	Game.take_mountain_pass()
 	check(not Game.demo_done, "mountain pass closed before the boss")
 
-	# A charge that connects costs energy and pushes the hunter back.
-	Game.energy = 100.0
+	# A charge that connects hurts and pushes the hunter back.
+	Game.health = Data.MAX_HEALTH
 	player.position = boss.position + Vector3(0, 0, 1.5)
 	await _frames(2)
 	boss._state = boss.State.CHARGE
@@ -217,7 +253,7 @@ func _test_boss_and_pass() -> void:
 	boss._charge_dir = Vector2(0, 1)
 	boss._charge_hit = false
 	await _frames(10)
-	check(Game.energy <= 100.0 - Data.BOSS["hit_energy"] + 0.01, "boar charge costs energy")
+	check(Game.health <= Data.MAX_HEALTH - Data.BOSS["hit_damage"] + 0.5, "boar charge hurts")
 
 	Game.tools["bow"] = true
 	Game.inventory = {}

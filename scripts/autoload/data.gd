@@ -8,6 +8,10 @@ extends Node
 const PLAYER_SPEED := 5.0 # metres per second
 const BASE_CARRY := 20.0 # kg
 const START_ENERGY := 100.0
+const MAX_HEALTH := 100.0
+const HEALTH_REGEN := 0.5 # per second while food and water are above LOW_NEED
+const REVIVE_HEALTH := 0.5 # share of max health after the "get back up" ad
+const REVIVE_GRACE := 2.0 # seconds the hunter can't be hit after getting back up
 const HUNGER_PER_SEC := 100.0 / 480.0 # full to empty in 8 minutes
 const THIRST_PER_SEC := 100.0 / 300.0 # full to empty in 5 minutes
 const SLEEP_NEED_RATE := 0.5 # hunger/thirst drain multiplier while asleep
@@ -89,14 +93,14 @@ const ANIMALS := {
 }
 
 ## The boss of the demo: the Great Boar in its lair at the far end of the east
-## forest. It charges instead of fleeing; a charge that hits costs the hunter
-## energy and knocks them back. After a charge it is dizzy for a moment.
+## forest. It charges instead of fleeing; a charge that hits hurts the hunter
+## and knocks them back. After a charge it is dizzy for a moment.
 const BOSS := {
 	"name": "Great Boar", "hp": 24, "size": 0.9, "color": Color(0.32, 0.22, 0.16),
 	"lair": Vector2(76, 9), "lair_radius": 6.0,
 	"walk_speed": 1.6, "charge_speed": 9.0, "aggro_radius": 8.0,
 	"windup": 0.9, "charge_time": 0.8, "dizzy": 2.2, "dizzy_damage_mult": 2,
-	"hit_energy": 15.0, "knockback": 4.0, "regen_per_sec": 0.5,
+	"hit_damage": 30.0, "knockback": 4.0, "regen_per_sec": 0.5,
 	"xp": 150, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2},
 }
 

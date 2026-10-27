@@ -1,8 +1,8 @@
 extends Node3D
 ## The Great Boar, boss of the demo. Lives in its lair in the east forest.
 ## When the hunter comes close it paws the ground (wind-up, glows red), then
-## charges in a straight line. A charge that connects costs energy and knocks
-## the hunter back. After each charge it is dizzy: the moment to strike, for
+## charges in a straight line. A charge that connects hurts and knocks the
+## hunter back. After each charge it is dizzy: the moment to strike, for
 ## double damage. If the hunter leaves, it walks home and slowly heals.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
@@ -67,7 +67,7 @@ func _process(delta: float) -> void:
 	var b: Dictionary = Data.BOSS
 	var here := Shapes.flat(self)
 	var to_player := Shapes.flat(player) - here
-	var player_near: bool = to_player.length() < b["aggro_radius"] and not Game.is_sleeping() \
+	var player_near: bool = to_player.length() < b["aggro_radius"] and not Game.is_sleeping() and not Game.is_dead() \
 		and _lair().distance_to(Shapes.flat(player)) < b["lair_radius"] * 2.0
 	var step := Vector2.ZERO
 	var speed := 0.0

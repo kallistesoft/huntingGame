@@ -38,7 +38,8 @@ func _process(delta: float) -> void:
 	if keys != Vector2.ZERO:
 		dir = keys.normalized()
 	var sleeping := Game.is_sleeping()
-	if sleeping:
+	var down := Game.is_dead()
+	if sleeping or down:
 		dir = Vector2.ZERO
 	if dir != Vector2.ZERO:
 		_face(dir)
@@ -49,8 +50,8 @@ func _process(delta: float) -> void:
 	position = Vector3(next.x, 0, next.y)
 	Game.player_position = next
 
-	_model.rotation_degrees.x = -90.0 if sleeping else 0.0
-	_model.position.y = 0.3 if sleeping else absf(sin(Time.get_ticks_msec() * 0.012)) * 0.08 * dir.length()
+	_model.rotation_degrees.x = -90.0 if sleeping or down else 0.0
+	_model.position.y = 0.3 if sleeping or down else absf(sin(Time.get_ticks_msec() * 0.012)) * 0.08 * dir.length()
 	_zzz.visible = sleeping
 	_arm.rotation_degrees.x = -70.0 if _swing > 0.0 else 0.0
 
@@ -76,7 +77,7 @@ func _face(dir: Vector2) -> void:
 
 
 func do_action() -> void:
-	if _cooldown > 0.0 or Game.is_sleeping():
+	if _cooldown > 0.0 or Game.is_sleeping() or Game.is_dead():
 		return
 	_cooldown = ACTION_COOLDOWN
 	var target := find_target()
