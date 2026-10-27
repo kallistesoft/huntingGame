@@ -11,7 +11,14 @@ This file carries the design discussion from a Claude chat (2026-10-27) so any C
 
 Alternatives considered: Unity (viable, but heavier and Claude can't run the editor), Phaser + Capacitor (fine for quick web prototypes, weaker for a growing store game).
 
-Target: mobile first (touch controls), Google Play under the owner's organization developer account, monetized with AdMob rewarded ads and in-app purchases.
+Target: mobile (touch controls), monetized with AdMob rewarded ads and in-app purchases.
+
+**Platforms: Android and iOS. Android first for the proof of concept (POC)**, on Google Play under the owner's organization developer account. iOS comes after the POC (needs an Apple Developer account and a Mac with Xcode to build).
+
+To keep the later iOS port cheap:
+- Choose ads/purchase plugins that support both Android and iOS.
+- Keep ads and purchases behind small wrappers (`AdService`, `StoreService`) so platform-specific code stays in one place.
+- Avoid Android-only features in game code.
 
 ## Game concept (as described by the owner)
 
