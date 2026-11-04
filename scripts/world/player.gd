@@ -16,7 +16,10 @@ var _swing := 0.0
 var _model: Node3D
 var _arm: Node3D
 var _spear: Node3D
+var _spear_tip: MeshInstance3D
 var _bow: Node3D
+var _bow_mesh: MeshInstance3D
+var _gear: Node3D # worn pieces, rebuilt by _update_gear
 var _zzz: Label3D
 var _knock := Vector2.ZERO
 var _zone := -1 # zone index the hunter stands in, to notice crossings
@@ -130,10 +133,60 @@ func _animal_nearby() -> bool:
 	return false
 
 
+## Rebuilds what the hunter wears from the equipped pieces: weapon in hand,
+## hood/helm, tunic/armor, boots and a bag on the back, coloured by tier.
 func _update_gear() -> void:
 	var w := Game.weapon()
-	_spear.visible = w == "spear"
-	_bow.visible = w == "bow"
+	_spear.visible = w != "" and Data.TOOLS[w]["icon"] == "spear"
+	_bow.visible = w != "" and Data.TOOLS[w]["icon"] == "bow"
+	if w != "":
+		var metal := _tier_metal(Data.TOOLS[w].get("tier", 1))
+		_spear_tip.material_override = Shapes.material(metal)
+		_bow_mesh.material_override = Shapes.material(Color(0.45, 0.28, 0.12) if Data.TOOLS[w]["tier"] < 3 else metal)
+	for child in _gear.get_children():
+		child.queue_free()
+	var head := Game.equipped("head")
+	if head != "":
+		var t: int = Data.TOOLS[head]["tier"]
+		var c := _tier_cloth(t) if t < 3 else _tier_metal(t)
+		Shapes.add(_gear, Shapes.sphere(0.29), c, Vector3(0, 1.62, -0.03), Vector3(1, 0.75, 1))
+		if t == 2:
+			for x in [-1, 1]:
+				Shapes.add(_gear, Shapes.cylinder(0.03, 0.22, 0.0), Color(0.97, 0.94, 0.85), Vector3(x * 0.2, 1.8, 0)).rotation_degrees.z = -x * 35
+		elif t == 3:
+			Shapes.add(_gear, Shapes.box(Vector3(0.06, 0.12, 0.4)), c.darkened(0.2), Vector3(0, 1.86, -0.03)) # crest
+	var body := Game.equipped("body")
+	if body != "":
+		var t: int = Data.TOOLS[body]["tier"]
+		var c := _tier_cloth(t)
+		Shapes.add(_gear, Shapes.cylinder(0.32, 0.62), c, Vector3(0, 1.02, 0))
+		if t >= 2:
+			for x in [-1, 1]:
+				Shapes.add(_gear, Shapes.sphere(0.13), c.darkened(0.2), Vector3(x * 0.3, 1.3, 0)) # shoulder pads
+		if t >= 3:
+			Shapes.add(_gear, Shapes.cylinder(0.3, 0.14), Color(0.6, 0.6, 0.65), Vector3(0, 1.36, 0)) # fur collar
+	var feet := Game.equipped("feet")
+	if feet != "":
+		var c := _tier_cloth(Data.TOOLS[feet]["tier"])
+		for x in [-1, 1]:
+			Shapes.add(_gear, Shapes.box(Vector3(0.16, 0.22, 0.28)), c, Vector3(x * 0.12, 0.11, 0.04))
+	var bag := Game.equipped("bag")
+	if bag != "":
+		var t: int = Data.TOOLS[bag]["tier"]
+		var c := _tier_cloth(t)
+		var sz := 0.22 + 0.08 * t
+		Shapes.add(_gear, Shapes.box(Vector3(sz, sz * 1.2, 0.18)), c, Vector3(0, 1.0, -0.33))
+		Shapes.add(_gear, Shapes.box(Vector3(sz * 1.05, 0.06, 0.2)), c.darkened(0.3), Vector3(0, 1.0 + sz * 0.55, -0.33)) # flap
+
+
+## Cloth colour by tier: fur, leather, wolf pelt.
+static func _tier_cloth(tier: int) -> Color:
+	return [Color(0.78, 0.56, 0.33), Color(0.47, 0.3, 0.16), Color(0.5, 0.5, 0.56)][clampi(tier, 1, 3) - 1]
+
+
+## Tool-head colour by tier: stone, bone, iron.
+static func _tier_metal(tier: int) -> Color:
+	return [Color(0.6, 0.6, 0.62), Color(0.92, 0.88, 0.78), Color(0.55, 0.62, 0.72)][clampi(tier, 1, 3) - 1]
 
 
 ## Built facing +Z so rotation.y = atan2(x, z) points it where it walks.
@@ -144,6 +197,8 @@ func _build_shape() -> void:
 	Shapes.add(_model, Shapes.sphere(0.24), SKIN, Vector3(0, 1.55, 0))
 	Shapes.add(_model, Shapes.sphere(0.25), Color(0.35, 0.22, 0.12), Vector3(0, 1.65, -0.05), Vector3(1, 0.7, 1))
 	Shapes.add(_model, Shapes.cylinder(0.31, 0.25), Color(0.55, 0.42, 0.25), Vector3(0, 0.55, 0)) # loincloth
+	_gear = Node3D.new()
+	_model.add_child(_gear)
 	_arm = Node3D.new()
 	_arm.position = Vector3(0.32, 1.15, 0)
 	_model.add_child(_arm)
@@ -152,12 +207,13 @@ func _build_shape() -> void:
 	_arm.add_child(_spear)
 	var shaft := Shapes.add(_spear, Shapes.cylinder(0.03, 1.8), Color(0.5, 0.33, 0.15), Vector3(0, -0.5, 0.3))
 	shaft.rotation_degrees.x = 80
-	Shapes.add(_spear, Shapes.cylinder(0.06, 0.2, 0.0), Color(0.6, 0.6, 0.62), Vector3(0, -0.35, 1.2)).rotation_degrees.x = 90
+	_spear_tip = Shapes.add(_spear, Shapes.cylinder(0.06, 0.2, 0.0), Color(0.6, 0.6, 0.62), Vector3(0, -0.35, 1.2))
+	_spear_tip.rotation_degrees.x = 90
 	_bow = Node3D.new()
 	_arm.add_child(_bow)
 	var bow_mesh := TorusMesh.new()
 	bow_mesh.inner_radius = 0.38
 	bow_mesh.outer_radius = 0.42
-	var bow := Shapes.add(_bow, bow_mesh, Color(0.45, 0.28, 0.12), Vector3(0, -0.5, 0.2), Vector3(1, 1, 0.5))
-	bow.rotation_degrees.z = 90
+	_bow_mesh = Shapes.add(_bow, bow_mesh, Color(0.45, 0.28, 0.12), Vector3(0, -0.5, 0.2), Vector3(1, 1, 0.5))
+	_bow_mesh.rotation_degrees.z = 90
 	_zzz = Shapes.label(self, "Zzz", Vector3(0, 1.4, 0))

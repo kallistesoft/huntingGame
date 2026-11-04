@@ -57,7 +57,8 @@ func _ready() -> void:
 	_add_station("storage", CAMP.position + Vector2(7.5, 2.75))
 	_add_station("house", CAMP.position + HOUSE_SPOT)
 	_add_station("tanning", CAMP.position + Vector2(13.0, 2.75))
-	_add_station("board", CAMP.position + Vector2(10, 7.75))
+	_add_station("forge", CAMP.position + Vector2(14.0, 7.75))
+	_add_station("board", CAMP.position + Vector2(9.5, 7.75))
 
 	# Reserve the spots that must stay clear of trees and rocks, then fill
 	# each zone from its data.
@@ -103,6 +104,7 @@ func _ready() -> void:
 			_spawn_animals(kind, z["rect"], z["animals"][kind])
 
 	Game.respawned.connect(_on_respawned)
+	Game.crafted.connect(_on_crafted)
 
 	var ui := CanvasLayer.new()
 	add_child(ui)
@@ -251,6 +253,17 @@ func fx_built(node: Node3D, tier: int) -> void:
 	Fx.float_text(self, node.global_position + Vector3(0, 3.2, 0), "Tier %d!" % tier, Style.ACCENT)
 	shake(0.15)
 	vibrate(40)
+
+
+## A new piece of equipment is worn: a burst on the hunter and its name.
+func _on_crafted(recipe_id: String) -> void:
+	var r: Dictionary = Data.RECIPES[recipe_id]
+	if not r.has("tool"):
+		return
+	Fx.burst(self, player.position + Vector3(0, 1.0, 0), Style.ACCENT, 26, 0.1, 4.5)
+	Fx.float_text(self, player.position + Vector3(0, 2.3, 0), "Equipped: %s" % Data.recipe_name(recipe_id), Style.ACCENT)
+	shake(0.1)
+	vibrate(30)
 
 
 func fx_kill_boss(node: Node3D) -> void:

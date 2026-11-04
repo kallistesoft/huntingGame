@@ -9,6 +9,7 @@ extends Node
 signal changed
 signal message(text: String)
 signal leveled_up(level: int)
+signal crafted(recipe_id: String) # a craft job finished
 signal demo_finished
 signal died
 signal respawned(at_house: bool) # after giving up: the world moves the hunter home
@@ -831,6 +832,7 @@ func _update_timers(t: float) -> void:
 		gain_xp(Data.CRAFT_XP * count)
 		quest_event("craft", recipe_id, count)
 		changed.emit()
+		crafted.emit(recipe_id)
 
 
 # --- XP and quests -----------------------------------------------------------

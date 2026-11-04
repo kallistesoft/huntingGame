@@ -387,6 +387,8 @@ func _test_zone3() -> void:
 
 	Game.dev_set_tier("house", 2)
 	Game.dev_set_tier("crafting", 3)
+	var forge := _nearest(func(n: Node) -> bool: return n.get("kind") == "forge")
+	check(forge != null, "the camp has a forge plot")
 	Game.dev_set_tier("forge", 1)
 	Game.storage = {"iron_ore": 10, "wood": 10, "bone": 5, "rope": 5}
 	Game.craft_jobs = {}
@@ -441,6 +443,8 @@ func _test_gear_chain() -> void:
 	Game.start_craft("leather_boots")
 	await _finish_timers()
 	check(Game.has_tool("leather_boots") and not Game.has_tool("fibre_wraps"), "boots upgrade consumed the wraps")
+	await _frames(2)
+	check(player._gear.get_child_count() >= 2, "boots show on the hunter")
 	check(Game.equipped("feet") == "leather_boots" and Game.move_speed() > base_speed * 1.25, "leather boots are equipped and faster")
 	Game.tools["fur_tunic"] = true
 	Game.start_craft("leather_armor")
