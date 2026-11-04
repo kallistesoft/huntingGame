@@ -43,6 +43,7 @@ func action_label() -> String:
 		"pond": return "Drink"
 		"tree": return "Chop"
 		"rock": return "Mine"
+		"grass": return "Cut grass"
 		_: return "Pick berries"
 
 
@@ -51,6 +52,7 @@ func action_icon() -> String:
 		"pond": return "water"
 		"tree": return "axe"
 		"rock": return "pick"
+		"grass": return "grass"
 		_: return "berries"
 
 
@@ -101,6 +103,14 @@ func _build_shape() -> void:
 			Shapes.add(_full, Shapes.sphere(0.5), grey, Vector3(0, 0.25, 0), Vector3(1.2, 0.8, 1.0))
 			Shapes.add(_full, Shapes.sphere(0.3), grey.lightened(0.15), Vector3(0.35, 0.2, 0.2))
 			Shapes.add(_empty, Shapes.sphere(0.18), grey, Vector3(0, 0.1, 0), Vector3(1, 0.6, 1))
+		"grass":
+			var blade := Color(0.55, 0.68, 0.3)
+			for i in 7:
+				var a := i * TAU / 7.0
+				var b := Shapes.add(_full, Shapes.cylinder(0.05, 1.1, 0.0), Color.WHITE, Vector3(cos(a) * 0.22, 0.55, sin(a) * 0.22))
+				b.material_override = Shapes.sway_material(blade.lightened(0.1 * (i % 3)), 0.12)
+				b.rotation_degrees = Vector3(cos(a) * 14, 0, -sin(a) * 14)
+			Shapes.add(_empty, Shapes.cylinder(0.3, 0.12), blade.darkened(0.35), Vector3(0, 0.06, 0))
 		"bush":
 			var leaves := Color(0.2, 0.5, 0.22)
 			Shapes.add(_full, Shapes.sphere(0.5), Color.WHITE, Vector3(0, 0.4, 0)).material_override = Shapes.sway_material(leaves, 0.05)

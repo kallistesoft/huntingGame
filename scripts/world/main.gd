@@ -4,7 +4,7 @@ extends Node3D
 ## and the UI. Map rectangles are on the ground plane: Rect2 x = world x,
 ## Rect2 y = world z.
 
-const CAMP := Rect2(5.5, 11, 13, 10.5)
+const CAMP := Rect2(5.5, 11, 16, 10.5)
 const PLAYER_START := Vector2(12, 16.5)
 const HOUSE_SPOT := Vector2(2.75, 7.75) # house position inside the camp
 const WORLD_SEED := 7
@@ -56,6 +56,7 @@ func _ready() -> void:
 	_add_station("crafting", CAMP.position + Vector2(2.75, 2.75))
 	_add_station("storage", CAMP.position + Vector2(7.5, 2.75))
 	_add_station("house", CAMP.position + HOUSE_SPOT)
+	_add_station("tanning", CAMP.position + Vector2(13.0, 2.75))
 	_add_station("board", CAMP.position + Vector2(10, 7.75))
 
 	# Reserve the spots that must stay clear of trees and rocks, then fill

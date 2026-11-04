@@ -23,7 +23,8 @@ const BAG := Color("d9c3a0")
 const ITEM_COLORS := {
 	"wood": Color("a0703f"), "stone": Color("b9bcc2"), "berries": Color("e23d5a"),
 	"raw_meat": Color("e0726b"), "cooked_meat": Color("b4683a"), "hide": Color("c8a17a"),
-	"fur": Color("d98b4a"), "antler": Color("efe6cf"),
+	"fur": Color("d98b4a"), "antler": Color("efe6cf"), "tusk": Color("f3eedc"), "bone": Color("ece6d2"),
+	"fibre": Color("b5bf6a"), "rope": Color("d8b36a"), "leather": Color("a0703f"),
 }
 
 static var _font: FontFile

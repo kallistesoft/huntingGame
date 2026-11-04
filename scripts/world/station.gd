@@ -124,6 +124,16 @@ func _build_structure(tier: int) -> void:
 			Shapes.add(_model, Shapes.box(Vector3(0.5, 0.9, 0.05)), Color(0.3, 0.18, 0.1), Vector3(0, 0.45, r * 0.96)) # door
 			if tier >= 2:
 				Shapes.add(_model, Shapes.box(Vector3(0.3, 0.8, 0.3)), Color(0.5, 0.5, 0.52), Vector3(r * 0.6, 2.5, -0.3)) # chimney
+		"tanning":
+			var wood := Color(0.45, 0.3, 0.18)
+			for x in [-1, 1]:
+				Shapes.add(_model, Shapes.box(Vector3(0.14, 1.9, 0.14)), wood, Vector3(x * r * 0.9, 0.95, 0))
+			Shapes.add(_model, Shapes.box(Vector3(r * 1.95, 0.1, 0.1)), wood.darkened(0.2), Vector3(0, 1.85, 0))
+			Shapes.add(_model, Shapes.box(Vector3(r * 1.3, 1.15, 0.06)), Color(0.78, 0.6, 0.4), Vector3(0, 1.15, 0)) # stretched hide
+			if tier >= 2:
+				for x in [-1, 1]:
+					Shapes.add(_model, Shapes.box(Vector3(0.12, 1.5, 0.12)), wood, Vector3(x * r * 0.9, 0.75, -0.7))
+				Shapes.add(_model, Shapes.box(Vector3(r * 1.1, 0.95, 0.06)), Color(0.62, 0.42, 0.26), Vector3(0, 0.95, -0.7))
 
 
 func _build_board() -> void:

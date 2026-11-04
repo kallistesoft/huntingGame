@@ -5,6 +5,7 @@ extends RefCounted
 const NAMES := [
 	"health", "energy", "food", "water", "bag", "xp", "sleep", "shop", "menu", "close",
 	"axe", "pick", "berries", "spear", "bow", "door", "build", "quest", "check", "pin",
+	"rope", "leather", "hood", "tunic", "boots", "grass", "hunter", "bone",
 ]
 
 
@@ -82,12 +83,57 @@ static func draw(ci: CanvasItem, icon: String, c: Vector2, s: float, color: Colo
 				ci.draw_line(p.call(-0.4, y), p.call(0.4, y), color.darkened(0.5), w * 0.6)
 		"check":
 			ci.draw_polyline(PackedVector2Array([p.call(-0.7, 0), p.call(-0.15, 0.55), p.call(0.75, -0.55)]), color, w * 1.4)
+		"rope":
+			# Coil seen from the side: three loops.
+			for y in [-0.45, 0.0, 0.45]:
+				ci.draw_arc(p.call(0, y), h * 0.62, 0, TAU, 20, color, w * 1.1)
+		"leather":
+			# A stretched hide: wide body with four little legs.
+			ci.draw_colored_polygon(PackedVector2Array([p.call(-0.75, -0.55), p.call(-0.45, -0.85), p.call(0.45, -0.85), p.call(0.75, -0.55),
+				p.call(0.9, 0.2), p.call(0.5, 0.85), p.call(-0.5, 0.85), p.call(-0.9, 0.2)]), color)
+			ci.draw_circle(p.call(0, 0.05), h * 0.18, color.darkened(0.25))
+		"hood":
+			# Hood: a dome with a dark face opening.
+			ci.draw_colored_polygon(_arc_poly(p.call(0, 0.2), h * 0.95, PI, TAU), color)
+			ci.draw_rect(Rect2(p.call(-0.95, 0.2), Vector2(1.9, 0.6) * h), color)
+			ci.draw_colored_polygon(_arc_poly(p.call(0, 0.35), h * 0.5, PI, TAU), color.darkened(0.6))
+		"tunic":
+			# Shirt outline: shoulders, short sleeves, straight body.
+			ci.draw_colored_polygon(PackedVector2Array([p.call(-0.35, -0.9), p.call(0.35, -0.9), p.call(0.95, -0.55), p.call(0.75, -0.05),
+				p.call(0.5, -0.15), p.call(0.5, 0.9), p.call(-0.5, 0.9), p.call(-0.5, -0.15), p.call(-0.75, -0.05), p.call(-0.95, -0.55)]), color)
+			ci.draw_colored_polygon(_arc_poly(p.call(0, -0.9), h * 0.3, 0, PI), color.darkened(0.5))
+		"boots":
+			# One boot: shaft, foot and a thick sole.
+			ci.draw_rect(Rect2(p.call(-0.55, -0.9), Vector2(0.7, 1.2) * h), color)
+			ci.draw_rect(Rect2(p.call(-0.55, 0.1), Vector2(1.4, 0.6) * h), color)
+			ci.draw_rect(Rect2(p.call(-0.6, 0.6), Vector2(1.5, 0.3) * h), color.darkened(0.45))
+		"grass":
+			# Three tall blades.
+			for i in [-1, 0, 1]:
+				ci.draw_line(p.call(i * 0.45, 0.95), p.call(i * 0.6, -0.9 + absf(i) * 0.3), color, w * 1.2)
+		"hunter":
+			# Head and shoulders.
+			ci.draw_circle(p.call(0, -0.45), h * 0.42, color)
+			ci.draw_colored_polygon(_arc_poly(p.call(0, 0.95), h * 0.9, PI, TAU), color)
+		"bone":
+			ci.draw_line(p.call(-0.5, 0.5), p.call(0.5, -0.5), color, w * 1.6)
+			for e in [Vector2(-0.5, 0.5), Vector2(0.5, -0.5)]:
+				ci.draw_circle(p.call(e.x - 0.18, e.y - 0.18), w * 0.9, color)
+				ci.draw_circle(p.call(e.x + 0.18, e.y + 0.18), w * 0.9, color)
 		"pin":
 			# Push pin: round head, a flat collar, and the needle pointing down-left.
 			ci.draw_circle(p.call(0.25, -0.45), h * 0.42, color)
 			ci.draw_line(p.call(-0.35, 0.05), p.call(0.55, -0.85), color, w * 1.1)
 			ci.draw_line(p.call(-0.55, -0.1), p.call(0.1, 0.55), color, w * 1.4)
 			ci.draw_line(p.call(-0.25, 0.25), p.call(-0.85, 0.85), color, w * 0.8)
+
+
+## Filled pie slice from angle a to b (radians), for domes and arcs.
+static func _arc_poly(c: Vector2, r: float, a: float, b: float) -> PackedVector2Array:
+	var pts := PackedVector2Array([c])
+	for i in 17:
+		pts.append(c + Vector2.from_angle(a + (b - a) * i / 16.0) * r)
+	return pts
 
 
 static func _round_rect(ci: CanvasItem, r: Rect2, radius: float, color: Color) -> void:

@@ -247,6 +247,7 @@ func _build_buttons() -> void:
 	add_child(row)
 	for spec in [["food", "Eat", Style.FOOD, Game.eat_best],
 			["sleep", "Sleep", Color("c9b8ff"), Game.start_sleep],
+			["hunter", "Hunter", Style.GOOD, func() -> void: _panel.open_hunter()],
 			["bag", "Bag", Style.BAG, func() -> void: _panel.open_bag()],
 			["shop", "Shop", Style.ACCENT, func() -> void: _panel.open_shop()],
 			["menu", "Menu", Style.TEXT, func() -> void: _panel.open_menu()]]:
@@ -467,7 +468,7 @@ func open_outpost() -> void:
 
 func _process(delta: float) -> void:
 	var smooth := minf(1.0, 8.0 * delta)
-	_set_stat("health", Game.health, Data.MAX_HEALTH, "%d/%d" % [ceili(Game.health), Data.MAX_HEALTH], smooth)
+	_set_stat("health", Game.health, Game.max_health(), "%d/%d" % [ceili(Game.health), Game.max_health()], smooth)
 	_set_stat("energy", Game.energy, Game.max_energy(), "%d/%d" % [ceili(Game.energy), Game.max_energy()], smooth)
 	_set_stat("food", Game.hunger, 100.0, "%d%%" % ceili(Game.hunger), smooth)
 	_set_stat("water", Game.thirst, 100.0, "%d%%" % ceili(Game.thirst), smooth)
@@ -490,8 +491,9 @@ func _process(delta: float) -> void:
 	var target: Node3D = player.find_target()
 	_action_icon = target.action_icon() if target != null else ""
 	_action_text = target.action_label() if target != null else ""
-	_action_new = target != null and target.get("kind") == "crafting" and Game.structure_tier("crafting") > 0 \
-		and not Game.unseen_recipes().is_empty()
+	var kind: Variant = target.get("kind") if target != null else null
+	_action_new = kind is String and kind in Data.recipe_stations() and Game.structure_tier(kind) > 0 \
+		and not Game.unseen_recipes(kind).is_empty()
 	_action_pulse += delta * 4.0
 
 	_update_prompt()

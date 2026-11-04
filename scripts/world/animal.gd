@@ -141,7 +141,7 @@ func action_label() -> String:
 
 
 func action_icon() -> String:
-	return Game.weapon()
+	return Data.tool_icon(Game.weapon())
 
 
 func interact(_player: Node3D) -> void:

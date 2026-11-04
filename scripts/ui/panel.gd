@@ -3,15 +3,24 @@ extends "res://scripts/ui/panel_shell.gd"
 ## house, quest board), the bag, the shop and the menu. The shell and the
 ## building blocks are in panel_shell.gd.
 
-## Icon and colour of each recipe's tile in the crafting window.
-const RECIPE_LOOKS := {
-	"spear": ["spear", Color("c9ccd2")],
-	"bow": ["bow", Color("e0b47a")],
-	"stone_axe": ["axe", Color("b9bcc2")],
-	"stone_pick": ["pick", Color("b9bcc2")],
-	"leather_bag": ["bag", Color("c8a17a")],
+## Icon and colour of a recipe's or an item's tile. Equipment takes its icon
+## from Data.TOOLS; the colour follows the tier (stone, bone…).
+const ITEM_LOOKS := {
 	"cooked_meat": ["food", Color("f08a4b")],
+	"rope": ["rope", Color("d8b36a")],
+	"leather": ["leather", Color("a0703f")],
 }
+const TIER_COLORS := [Color("c9ccd2"), Color("c8a17a"), Color("efe6cf"), Color("9fb4c7")]
+
+
+## [icon, colour] for a recipe id or a tool id.
+static func look_of(id: String) -> Array:
+	if ITEM_LOOKS.has(id):
+		return ITEM_LOOKS[id]
+	if Data.TOOLS.has(id):
+		var t: Dictionary = Data.TOOLS[id]
+		return [t["icon"], TIER_COLORS[clampi(t.get("tier", 1), 1, TIER_COLORS.size()) - 1]]
+	return ["build", Style.TEXT]
 ## Order of recipe states in a category: what you can craft now comes first.
 const RECIPE_STATE_ORDER := ["ready", "busy", "missing", "locked", "owned"]
 
@@ -24,8 +33,8 @@ func _on_open() -> void:
 
 
 func _on_close() -> void:
-	if _station_kind == "crafting":
-		Game.mark_recipes_seen()
+	if _station_kind in Data.recipe_stations():
+		Game.mark_recipes_seen(_station_kind)
 	_station_kind = ""
 
 
@@ -42,11 +51,11 @@ func _build_station(kind: String) -> void:
 		_build_board()
 		return
 	var tier := Game.structure_tier(kind)
-	if kind == "crafting" and tier > 0:
+	if kind in Data.recipe_stations() and tier > 0:
 		# Recipes are what you come here for; the upgrade goes below them.
-		_build_crafting()
+		_build_crafting(kind)
 		_separator()
-		_heading("Upgrade the crafting place")
+		_heading("Upgrade the %s" % Data.STRUCTURES[kind]["name"].to_lower())
 		_build_upgrade(kind)
 		return
 	_build_upgrade(kind)
@@ -91,6 +100,8 @@ func _build_upgrade(kind: String) -> void:
 	col.add_child(_make_label(_tier_benefit(kind, tier), Style.MUTED, 17))
 	var chips := _cost_chips(next["cost"], next["time"])
 	chips.add_child(_chip("Level %d" % next["level"], Style.GOOD if Game.level >= next["level"] else Style.BAD))
+	if next.get("house_tier", 0) > 0:
+		chips.add_child(_chip("House tier %d" % next["house_tier"], Style.GOOD if Game.structure_tier("house") >= next["house_tier"] else Style.BAD))
 	col.add_child(chips)
 	if blocker != "":
 		var missing := missing_text(next["cost"])
@@ -119,11 +130,16 @@ func _tier_benefit(kind: String, tier: int) -> String:
 		_:
 			if next.is_empty():
 				return "All recipes unlocked."
+			var parts := []
 			var unlocks := []
 			for id in Data.RECIPES:
-				if Data.RECIPES[id]["tier"] == tier + 1:
+				if Data.RECIPES[id]["station"] == kind and Data.RECIPES[id]["tier"] == tier + 1:
 					unlocks.append(Data.recipe_name(id))
-			return "Unlocks: %s" % ", ".join(unlocks) if not unlocks.is_empty() else "Better tiers unlock better recipes."
+			if not unlocks.is_empty():
+				parts.append("Unlocks: %s" % ", ".join(unlocks))
+			if next.has("speed") and next["speed"] < Game.station_speed(kind):
+				parts.append("Crafts here take %d%% less time" % roundi((1.0 - next["speed"] / Game.station_speed(kind)) * 100))
+			return " · ".join(parts) if not parts.is_empty() else "Better tiers unlock better recipes."
 
 
 ## A progress card: icon, title, bar, time left and a speed-up (ad) button.
@@ -151,10 +167,10 @@ func _timer_card(icon: String, color: Color, title: String, left_fn: Callable, t
 	_content.add_child(parts[0])
 
 
-func _build_crafting() -> void:
-	_craft_status()
+func _build_crafting(station: String) -> void:
+	_craft_status(station)
 	var order: Array = Data.RECIPES.keys()
-	var ids := order.duplicate()
+	var ids := order.filter(func(id: String) -> bool: return Data.RECIPES[id]["station"] == station)
 	ids.sort_custom(func(a: String, b: String) -> bool:
 		var ra := RECIPE_STATE_ORDER.find(_recipe_state(a))
 		var rb := RECIPE_STATE_ORDER.find(_recipe_state(b))
@@ -163,12 +179,13 @@ func _build_crafting() -> void:
 		_section(group[0])
 		for id in group[1]:
 			_recipe_card(id)
-	_label("Tools are equipped when done. Other crafts go to storage. Tap a cost to see where to find it; pin a recipe to follow it on screen.", Style.MUTED, 17)
+	_label("Equipment is worn when done; other crafts go to storage. Tap a cost to see where to find it; pin a recipe to follow it on screen.", Style.MUTED, 17)
 
 
 ## The card at the top: what is being crafted and how long is left.
-func _craft_status() -> void:
-	if Game.craft_job.is_empty():
+func _craft_status(station: String) -> void:
+	var job := Game.craft_job_at(station)
+	if job.is_empty():
 		var parts := _card()
 		var row: HBoxContainer = parts[1]
 		row.add_child(_icon_tile("build", Style.MUTED, 34))
@@ -178,12 +195,12 @@ func _craft_status() -> void:
 		row.add_child(idle)
 		_content.add_child(parts[0])
 		return
-	var id: String = Game.craft_job["recipe"]
-	var count: int = Game.craft_job.get("count", 1)
-	var look: Array = RECIPE_LOOKS.get(id, ["build", Style.TEXT])
-	var total: float = Data.RECIPES[id]["time"] * count
+	var id: String = job["recipe"]
+	var count: int = job.get("count", 1)
+	var look := look_of(id)
+	var total: float = Data.RECIPES[id]["time"] * count * Game.station_speed(station)
 	var title := "Crafting %s" % Data.recipe_name(id) + (" ×%d" % count if count > 1 else "")
-	_timer_card(look[0], look[1], title, Game.craft_left, total, "craft")
+	_timer_card(look[0], look[1], title, Game.craft_left.bind(station), total, "craft:" + station)
 
 
 ## "ready", "busy" (another craft is running), "missing" (materials),
@@ -192,30 +209,32 @@ func _recipe_state(id: String) -> String:
 	var r: Dictionary = Data.RECIPES[id]
 	if r.has("tool") and Game.has_tool(r["tool"]):
 		return "owned"
-	if Game.structure_tier("crafting") < r["tier"]:
+	if Game.structure_tier(r["station"]) < r["tier"]:
 		return "locked"
 	if not Game.can_afford(r["cost"]):
 		return "missing"
-	if not Game.craft_job.is_empty():
+	if Game.craft_jobs.has(r["station"]):
 		return "busy"
 	return "ready"
 
 
-## One line on what the crafted thing does.
+## One line on what the crafted thing does; upgrades show "old → new".
 func _recipe_effect(id: String) -> String:
 	var r: Dictionary = Data.RECIPES[id]
 	if r.has("item"):
 		var item: Dictionary = Data.ITEMS[r["item"]]
-		return "Eat for +%d food" % item["food"] if item.has("food") else ""
+		if item.has("food"):
+			return "Eat for +%d food" % item["food"]
+		var uses := []
+		for other in Data.RECIPES:
+			if Data.RECIPES[other]["cost"].has(r["item"]):
+				uses.append(Data.recipe_name(other))
+		return "For: %s" % ", ".join(uses.slice(0, 3)) if not uses.is_empty() else ""
 	var tool: Dictionary = Data.TOOLS[r["tool"]]
-	if tool.has("damage"):
-		return "Damage %d · reach %.1f m" % [tool["damage"], tool["range"]]
-	if tool.has("carry_bonus"):
-		return "+%d kg carry limit" % tool["carry_bonus"]
-	for res in Data.RESOURCES.values():
-		if res["tool"] == r["tool"]:
-			return "2 %s per hit on a %s" % [Data.item_name(res["item"]).to_lower(), res["name"].to_lower()]
-	return ""
+	var text := Data.tool_effect(r["tool"])
+	if tool.has("upgrades_from") and Game.has_tool(tool["upgrades_from"]):
+		text = "%s → %s" % [Data.tool_effect(tool["upgrades_from"]), text]
+	return text
 
 
 func _recipe_card(id: String) -> void:
@@ -224,7 +243,7 @@ func _recipe_card(id: String) -> void:
 	var parts := _card()
 	var card: PanelContainer = parts[0]
 	var row: HBoxContainer = parts[1]
-	var look: Array = RECIPE_LOOKS.get(id, ["build", Style.TEXT])
+	var look := look_of(id)
 	var tile := _icon_tile(look[0], look[1])
 	tile.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(tile)
@@ -259,13 +278,16 @@ func _recipe_card(id: String) -> void:
 		"missing":
 			col.add_child(_make_label(missing_text(r["cost"]), Style.BAD, 17))
 		"locked":
-			col.add_child(_make_label("Unlocks at crafting place tier %d" % r["tier"], Style.MUTED, 17))
+			col.add_child(_make_label("Unlocks at %s tier %d" % [Data.STRUCTURES[r["station"]]["name"].to_lower(), r["tier"]], Style.MUTED, 17))
 			card.modulate.a = 0.55
 		"busy":
 			col.add_child(_make_label("Wait for the current craft", Style.MUTED, 17))
 
 	if state == "owned":
 		card.modulate.a = 0.7
+		var up := Data.upgrade_of(r["tool"])
+		if up != "" and not Game.has_tool(Data.RECIPES[up]["tool"]):
+			col.add_child(_make_label("Upgrade: %s" % Data.recipe_name(up), Style.ACCENT, 17))
 		var badge := HBoxContainer.new()
 		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var check := IconRect.new()
@@ -349,6 +371,82 @@ func _build_board() -> void:
 	_label("Quests complete on their own as you play.", Style.MUTED, 17)
 
 
+# --- Hunter (equipment) ------------------------------------------------------
+
+func open_hunter() -> void:
+	open("Hunter", _build_hunter)
+
+
+func _build_hunter() -> void:
+	var totals := []
+	totals.append("Max health %d" % Game.max_health())
+	totals.append("Carry %d kg" % Game.carry_limit())
+	var speed := roundi((Game.gear_stat("feet", "speed_mult", 1.0) - 1.0) * 100)
+	if speed > 0:
+		totals.append("Speed +%d%%" % speed)
+	var armor := roundi(Game.gear_stat("body", "armor", 0.0) * 100)
+	if armor > 0:
+		totals.append("Blocks %d%% of damage" % armor)
+	var drain := roundi((1.0 - Game.gear_stat("body", "drain_mult", 1.0)) * 100)
+	if drain > 0:
+		totals.append("Hunger and thirst %d%% slower" % drain)
+	_label("Level %d · %s" % [Game.level, " · ".join(totals)])
+	_heading("Equipment")
+	_grid = GridContainer.new()
+	_grid.columns = GRID_COLUMNS
+	_grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	_grid.add_theme_constant_override("h_separation", 10)
+	_grid.add_theme_constant_override("v_separation", 10)
+	_content.add_child(_grid)
+	for slot in Data.SLOTS:
+		_slot_card(slot)
+	_grid = null
+	_label("Craft equipment at the crafting place. A better piece replaces the one you wear; upgrades use the old piece.", Style.MUTED, 17)
+
+
+func _slot_card(slot: String) -> void:
+	var id := Game.equipped(slot)
+	var parts := _card()
+	var card: PanelContainer = parts[0]
+	var row: HBoxContainer = parts[1]
+	var look := look_of(id) if id != "" else ["hunter", Style.MUTED]
+	var tile := _icon_tile(look[0], look[1])
+	tile.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(tile)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 4)
+	row.add_child(col)
+	col.add_child(_make_label(Data.SLOTS[slot], Style.MUTED, 16, true))
+	if id == "":
+		col.add_child(_make_label("Nothing", Style.TEXT, 22, true))
+		card.modulate.a = 0.7
+		# The first piece for this slot and where it is made.
+		for rid in Data.RECIPES:
+			var r: Dictionary = Data.RECIPES[rid]
+			if r.has("tool") and Data.TOOLS[r["tool"]]["slot"] == slot and Data.TOOLS[r["tool"]].get("tier", 1) == 1:
+				col.add_child(_make_label("Craft: %s (%s)" % [Data.recipe_name(rid), Data.STRUCTURES[r["station"]]["name"].to_lower()], Style.ACCENT, 17))
+				break
+		_place(card)
+		return
+	var t: Dictionary = Data.TOOLS[id]
+	var title := HBoxContainer.new()
+	title.add_theme_constant_override("separation", 8)
+	col.add_child(title)
+	var name_label := _make_label(t["name"], Style.TEXT, 22, true)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_child(name_label)
+	var stars := _make_label("★".repeat(t.get("tier", 1)), Style.ACCENT, 20, true)
+	stars.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title.add_child(stars)
+	col.add_child(_make_label(Data.tool_effect(id), Style.MUTED, 17))
+	var up := Data.upgrade_of(id)
+	if up != "":
+		var r: Dictionary = Data.RECIPES[up]
+		col.add_child(_make_label("Next: %s (%s tier %d)" % [Data.recipe_name(up), Data.STRUCTURES[r["station"]]["name"].to_lower(), r["tier"]], Style.ACCENT, 17))
+	_place(card)
+
+
 # --- Bag, shop, menu ---------------------------------------------------------
 
 func open_bag() -> void:
@@ -367,10 +465,11 @@ func _build_bag() -> void:
 				buttons.append(["Eat", true, Game.eat.bind(id)])
 			_row("%s ×%d (%.1f kg)" % [Data.item_name(id), Game.inventory[id], Data.item_weight(id) * Game.inventory[id]], buttons)
 	_separator()
-	var owned := []
-	for id in Game.tools:
-		owned.append(Data.item_name(id))
-	_label("Tools: " + (", ".join(owned) if not owned.is_empty() else "none"))
+	var worn := []
+	for slot in Data.SLOTS:
+		if Game.equipped(slot) != "":
+			worn.append(Data.item_name(Game.equipped(slot)))
+	_label("Equipment: " + (", ".join(worn) if not worn.is_empty() else "none") + " (see Hunter)")
 
 
 func open_shop() -> void:

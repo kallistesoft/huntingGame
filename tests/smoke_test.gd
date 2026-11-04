@@ -29,6 +29,7 @@ func _ready() -> void:
 	await _test_levels_and_zone()
 	await _test_death()
 	await _test_boss_and_pass()
+	await _test_gear_chain()
 	_test_save_load()
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
@@ -77,8 +78,8 @@ func _finish_timers() -> void:
 	for id in Game.structures:
 		if Game.structures[id]["busy_until"] > 0.0:
 			Game.structures[id]["busy_until"] = Game.now() - 1.0
-	if not Game.craft_job.is_empty():
-		Game.craft_job["done_at"] = Game.now() - 1.0
+	for station in Game.craft_jobs:
+		Game.craft_jobs[station]["done_at"] = Game.now() - 1.0
 	await _frames(2)
 
 
@@ -105,7 +106,7 @@ func _test_build_and_craft() -> void:
 	check(Game.quest_index == 2, "quest 'Build the crafting place' completed")
 	await _gather("tree", "wood", 3)
 	Game.start_craft("spear")
-	check(not Game.craft_job.is_empty(), "spear crafting started")
+	check(Game.craft_jobs.has("crafting"), "spear crafting started")
 	await _finish_timers()
 	check(Game.has_tool("spear"), "spear crafted and equipped")
 	check(Game.quest_index == 3, "quest 'Craft a wooden spear' completed")
@@ -173,12 +174,12 @@ func _test_batch_pin_and_speed_up() -> void:
 	check(Game.max_craft_count("cooked_meat") == 6, "can cook 6 meat at once")
 	check(Game.max_craft_count("stone_axe") == 1, "tools are crafted one at a time")
 	Game.start_craft("cooked_meat", 5)
-	check(Game.craft_job.get("count", 0) == 5 and Game.storage.get("raw_meat", 0) == 1, "batch of 5 took 5 meat")
-	var left_before := Game.craft_left()
+	check(Game.craft_job_at("crafting").get("count", 0) == 5 and Game.storage.get("raw_meat", 0) == 1, "batch of 5 took 5 meat")
+	var left_before := Game.craft_left("crafting")
 	var ads_before := Game.ads_left_today()
-	Game.speed_up("craft")
+	Game.speed_up("craft:crafting")
 	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
-	check(Game.craft_left() < left_before * 0.6, "speed-up ad halved the craft time")
+	check(Game.craft_left("crafting") < left_before * 0.6, "speed-up ad halved the craft time")
 	check(Game.ads_left_today() == ads_before - 1, "speed-up used one daily ad")
 	await _finish_timers()
 	check(Game.storage.get("cooked_meat", 0) >= 5, "batch delivered 5 cooked meat to storage")
@@ -341,6 +342,57 @@ func _test_boss_and_pass() -> void:
 	await _frames(2)
 	check(world.hud._end_screen.visible, "end of demo screen shown")
 	world.hud._end_screen.visible = false
+
+
+func _test_gear_chain() -> void:
+	print("Materials, tanning rack and gear")
+	Game.inventory = {}
+	Game.craft_jobs = {}
+	Game.energy = 100.0
+	Game.dev_set_tier("house", 0)
+	check(Game.build_blocker("tanning") != "Needs house tier 1", "tanning rack tier 1 needs no house")
+	Game.dev_set_tier("tanning", 1)
+	Game.dev_set_tier("crafting", 1)
+	Game.storage = {"wood": 30, "stone": 20, "rope": 5}
+	check(Game.build_blocker("crafting") == "Needs house tier 1", "crafting place tier 2 waits for the house")
+	Game.dev_set_tier("house", 1)
+	Game.dev_set_tier("crafting", 2)
+	Game.storage = {"fibre": 30, "hide": 6, "bone": 8, "fur": 12, "wood": 20, "stone": 10, "leather": 10, "tusk": 1}
+	var tree := _nearest(func(n: Node) -> bool: return n.get("kind") == "grass" and n.is_available())
+	check(tree != null, "tall grass grows in the meadow")
+	Game.start_craft("rope", 3)
+	Game.start_craft("leather", 2)
+	check(Game.craft_jobs.has("crafting") and Game.craft_jobs.has("tanning"), "crafting place and tanning rack work at the same time")
+	await _finish_timers()
+	check(Game.storage.get("rope", 0) >= 3 and Game.storage.get("leather", 0) >= 12, "rope and leather delivered to storage")
+	var base_speed := Game.move_speed()
+	Game.start_craft("fibre_wraps")
+	await _finish_timers()
+	check(Game.has_tool("fibre_wraps") and Game.move_speed() > base_speed * 1.1, "fibre wraps make the hunter faster")
+	Game.start_craft("leather_boots")
+	await _finish_timers()
+	check(Game.has_tool("leather_boots") and not Game.has_tool("fibre_wraps"), "boots upgrade consumed the wraps")
+	check(Game.equipped("feet") == "leather_boots" and Game.move_speed() > base_speed * 1.25, "leather boots are equipped and faster")
+	Game.tools["fur_tunic"] = true
+	Game.start_craft("leather_armor")
+	await _finish_timers()
+	Game.health = Game.max_health()
+	Game.protected_until = 0.0
+	Game.damage(30.0, "Test")
+	check(Game.has_tool("leather_armor") and absf(Game.health - (Game.max_health() - 15.0)) < 0.5, "leather armor halves damage")
+	Game.tools["fur_hood"] = true
+	check(Game.max_health() == Data.MAX_HEALTH + 25.0, "fur hood raises max health")
+	Game.tools["stone_axe"] = true
+	Game.tools["bone_axe"] = true
+	check(Game.gather("tree", 6) == 3, "bone axe gives 3 wood per hit")
+	Game.tools["bone_spear"] = true
+	check(Game.weapon() == "bow", "bow stays the weapon in use over the bone spear")
+	Game.tools.erase("bow")
+	check(Game.weapon() == "bone_spear" and Game.weapon_damage() == 2, "bone spear replaces the wooden spear")
+	check(Game.unseen_recipes("tanning").size() <= 1, "tanning rack lists only its own recipes")
+	for id in ["fur_hood", "fur_tunic", "leather_armor", "leather_boots", "bone_axe", "bone_spear"]:
+		Game.tools.erase(id)
+	Game.tools["bow"] = true
 
 
 func _test_save_load() -> void:

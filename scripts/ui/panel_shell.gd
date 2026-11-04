@@ -316,8 +316,9 @@ func _chip(text: String, color: Color, note := "", on_tap := Callable(), filled 
 ## you have. Tapping it says where to find the item.
 func _cost_chip(item: String, need: int) -> PanelContainer:
 	var have := Game.count_available(item)
-	return _chip("%d %s" % [need, Data.item_name(item)], Style.GOOD if have >= need else Style.BAD,
-		"have %d" % have, func() -> void: Game.notify(Data.sources(item)))
+	var note := ("owned" if have > 0 else "missing") if Data.TOOLS.has(item) else "have %d" % have
+	return _chip(("%d %s" % [need, Data.item_name(item)]) if not Data.TOOLS.has(item) else Data.item_name(item),
+		Style.GOOD if have >= need else Style.BAD, note, func() -> void: Game.notify(Data.sources(item)))
 
 
 ## Cost chips for a whole cost dictionary, plus a time chip.
@@ -332,11 +333,21 @@ func _cost_chips(cost: Dictionary, seconds: float) -> HFlowContainer:
 ## "Need 3 more stone, 1 more fur" or "" when the cost is covered.
 static func missing_text(cost: Dictionary) -> String:
 	var need := []
+	var gear := []
 	for item in cost:
 		var short: int = cost[item] - Game.count_available(item)
-		if short > 0:
+		if short <= 0:
+			continue
+		if Data.TOOLS.has(item):
+			gear.append("a %s" % Data.item_name(item).to_lower())
+		else:
 			need.append("%d more %s" % [short, Data.item_name(item).to_lower()])
-	return "Need " + ", ".join(need) if not need.is_empty() else ""
+	var parts := []
+	if not gear.is_empty():
+		parts.append("Needs %s first" % ", ".join(gear))
+	if not need.is_empty():
+		parts.append("Need " + ", ".join(need))
+	return " · ".join(parts)
 
 
 func _separator() -> void:

@@ -28,7 +28,7 @@ var inventory := {} # item id -> count, carried
 var storage := {} # item id -> count, at camp
 var tools := {} # tool id -> true
 var structures := {} # id -> {"tier", "busy_until", "next_tier"}
-var craft_job := {} # {"recipe", "count", "done_at"} or empty
+var craft_jobs := {} # station id -> {"recipe", "count", "done_at"}
 var sleep_until := 0.0
 var ad_day := ""
 var ads_today := 0
@@ -58,11 +58,11 @@ func _notification(what: int) -> void:
 
 func _process(delta: float) -> void:
 	var t := now()
-	var drain := Data.SLEEP_NEED_RATE if is_sleeping() else 1.0
+	var drain := (Data.SLEEP_NEED_RATE if is_sleeping() else 1.0) * gear_stat("body", "drain_mult", 1.0)
 	hunger = maxf(0.0, hunger - Data.HUNGER_PER_SEC * delta * drain)
 	thirst = maxf(0.0, thirst - Data.THIRST_PER_SEC * delta * drain)
 	if not is_dead() and hunger > Data.LOW_NEED and thirst > Data.LOW_NEED:
-		health = minf(Data.MAX_HEALTH, health + Data.HEALTH_REGEN * delta)
+		health = minf(max_health(), health + Data.HEALTH_REGEN * delta)
 	_starve(delta)
 	_update_timers(t)
 	_autosave_left -= delta
@@ -110,10 +110,34 @@ func storage_capacity() -> float:
 
 
 func carry_limit() -> float:
-	var limit := Data.BASE_CARRY
+	return Data.BASE_CARRY + gear_stat("bag", "carry_bonus", 0.0)
+
+
+func max_health() -> float:
+	return Data.MAX_HEALTH + gear_stat("head", "max_health", 0.0)
+
+
+# --- Equipment ---------------------------------------------------------------
+
+## The piece in use for a slot: the highest tier owned (then the strongest), or "".
+func equipped(slot: String) -> String:
+	var best := ""
+	var best_rank := -1
 	for id in tools:
-		limit += Data.TOOLS[id].get("carry_bonus", 0.0)
-	return limit
+		var t: Dictionary = Data.TOOLS[id]
+		if t.get("slot", "") != slot:
+			continue
+		var rank: int = t.get("tier", 0) * 100 + t.get("damage", 0)
+		if rank > best_rank:
+			best = id
+			best_rank = rank
+	return best
+
+
+## A stat of the piece equipped in a slot, or the default when the slot is empty.
+func gear_stat(slot: String, key: String, default: float) -> float:
+	var id := equipped(slot)
+	return float(Data.TOOLS[id].get(key, default)) if id != "" else default
 
 
 func bag_weight(bag: Dictionary) -> float:
@@ -133,11 +157,7 @@ func has_tool(id: String) -> bool:
 
 ## The best owned weapon, or "" if the hunter has none.
 func weapon() -> String:
-	if has_tool("bow"):
-		return "bow"
-	if has_tool("spear"):
-		return "spear"
-	return ""
+	return equipped("weapon")
 
 
 func weapon_range() -> float:
@@ -163,7 +183,7 @@ func xp_boost_left() -> float:
 
 
 func move_speed() -> float:
-	var speed := Data.PLAYER_SPEED
+	var speed := Data.PLAYER_SPEED * gear_stat("feet", "speed_mult", 1.0)
 	if energy <= 0.0:
 		speed *= Data.EXHAUSTED_SPEED
 	for need in [hunger, thirst]:
@@ -242,6 +262,8 @@ func ads_left_today() -> int:
 # --- Items -------------------------------------------------------------------
 
 func count_available(id: String) -> int:
+	if Data.TOOLS.has(id):
+		return 1 if has_tool(id) else 0
 	return inventory.get(id, 0) + storage.get(id, 0)
 
 
@@ -255,6 +277,9 @@ func can_afford(cost: Dictionary) -> bool:
 ## Takes from camp storage first, then from the bag.
 func _pay(cost: Dictionary) -> void:
 	for id in cost:
+		if Data.TOOLS.has(id):
+			tools.erase(id) # an upgrade consumes the old piece
+			continue
 		var left: int = cost[id]
 		var from_storage := mini(left, storage.get(id, 0))
 		_remove(storage, id, from_storage)
@@ -298,6 +323,7 @@ func is_dead() -> bool:
 func damage(amount: float, source: String) -> void:
 	if is_dead() or now() < protected_until:
 		return
+	amount *= 1.0 - gear_stat("body", "armor", 0.0)
 	notify("%s -%d health" % [source, amount])
 	_lose_health(amount)
 
@@ -333,7 +359,7 @@ func revive_with_ad() -> void:
 	AdService.show_rewarded(func(rewarded: bool) -> void:
 		if not rewarded or not is_dead():
 			return
-		health = Data.MAX_HEALTH * Data.REVIVE_HEALTH
+		health = max_health() * Data.REVIVE_HEALTH
 		protected_until = now() + Data.REVIVE_GRACE
 		notify("You get back up!" if hunger > 0.0 and thirst > 0.0 else "You get back up! Eat and drink quickly.")
 		changed.emit()
@@ -345,7 +371,7 @@ func give_up() -> void:
 	if not is_dead():
 		return
 	inventory = {}
-	health = Data.MAX_HEALTH
+	health = max_health()
 	hunger = maxf(hunger, Data.WAKE_NEEDS)
 	thirst = maxf(thirst, Data.WAKE_NEEDS)
 	sleep_until = 0.0
@@ -379,9 +405,7 @@ func gather(kind: String, remaining: int) -> int:
 	if not _can_act():
 		return 0
 	var item: String = r["item"]
-	var amount := 1
-	if r["tool"] != "" and has_tool(r["tool"]):
-		amount = 2
+	var amount := int(gear_stat(r["slot"], "yield", 1.0)) if r["slot"] != "" else 1
 	amount = mini(amount, remaining)
 	amount = add_to_bag(item, amount)
 	if amount <= 0:
@@ -543,8 +567,8 @@ func speed_up(target: String) -> void:
 			return
 		_roll_ad_day()
 		ads_today += 1
-		if target == "craft":
-			craft_job["done_at"] = now() + left / 2.0
+		if target.begins_with("craft:"):
+			craft_jobs[target.trim_prefix("craft:")]["done_at"] = now() + left / 2.0
 		else:
 			structures[target]["busy_until"] = now() + left / 2.0
 		notify("Time halved: %d s left." % ceili(left / 2.0))
@@ -553,8 +577,8 @@ func speed_up(target: String) -> void:
 
 
 func _time_left(target: String) -> float:
-	if target == "craft":
-		return craft_left()
+	if target.begins_with("craft:"):
+		return craft_left(target.trim_prefix("craft:"))
 	if structures.has(target) and structure_busy(target):
 		return maxf(0.0, structures[target]["busy_until"] - now())
 	return 0.0
@@ -626,6 +650,8 @@ func build_blocker(id: String) -> String:
 	var next: Dictionary = tiers[tier]
 	if level < next["level"]:
 		return "Needs level %d" % next["level"]
+	if next.get("house_tier", 0) > structure_tier("house"):
+		return "Needs house tier %d" % next["house_tier"]
 	if not can_afford(next["cost"]):
 		return "Missing materials"
 	return ""
@@ -646,15 +672,27 @@ func start_build(id: String) -> void:
 
 func craft_blocker(recipe_id: String) -> String:
 	var r: Dictionary = Data.RECIPES[recipe_id]
-	if structure_tier("crafting") < r["tier"]:
-		return "Needs crafting place tier %d" % r["tier"]
+	if structure_tier(r["station"]) < r["tier"]:
+		return "Needs %s tier %d" % [Data.STRUCTURES[r["station"]]["name"].to_lower(), r["tier"]]
 	if r.has("tool") and has_tool(r["tool"]):
 		return "Owned"
-	if not craft_job.is_empty():
+	if craft_jobs.has(r["station"]):
 		return "Busy"
 	if not can_afford(r["cost"]):
 		return "Missing materials"
 	return ""
+
+
+## Craft time multiplier of a station at its current tier (tier 2 rack: 0.5).
+func station_speed(station: String) -> float:
+	var tier := structure_tier(station)
+	if tier == 0:
+		return 1.0
+	return Data.STRUCTURES[station]["tiers"][tier - 1].get("speed", 1.0)
+
+
+func craft_job_at(station: String) -> Dictionary:
+	return craft_jobs.get(station, {})
 
 
 ## How many of a recipe the materials allow (1 for tools, which are made once).
@@ -677,7 +715,7 @@ func start_craft(recipe_id: String, count := 1) -> void:
 	for id in r["cost"]:
 		cost[id] = r["cost"][id] * count
 	_pay(cost)
-	craft_job = {"recipe": recipe_id, "count": count, "done_at": now() + r["time"] * count}
+	craft_jobs[r["station"]] = {"recipe": recipe_id, "count": count, "done_at": now() + r["time"] * count * station_speed(r["station"])}
 	changed.emit()
 	save_game()
 
@@ -688,18 +726,21 @@ func toggle_pin(recipe_id: String) -> void:
 	save_game()
 
 
-## Recipes unlocked at the current crafting tier, not owned, not yet seen.
-func unseen_recipes() -> Array:
+## Recipes unlocked at their station's tier, not owned, not yet seen.
+## station = "" means every station.
+func unseen_recipes(station := "") -> Array:
 	var out := []
 	for id in Data.RECIPES:
 		var r: Dictionary = Data.RECIPES[id]
-		if r["tier"] <= structure_tier("crafting") and not (r.has("tool") and has_tool(r["tool"])) and not seen_recipes.has(id):
+		if station != "" and r["station"] != station:
+			continue
+		if r["tier"] <= structure_tier(r["station"]) and not (r.has("tool") and has_tool(r["tool"])) and not seen_recipes.has(id):
 			out.append(id)
 	return out
 
 
-func mark_recipes_seen() -> void:
-	var fresh := unseen_recipes()
+func mark_recipes_seen(station := "") -> void:
+	var fresh := unseen_recipes(station)
 	if fresh.is_empty():
 		return
 	seen_recipes.append_array(fresh)
@@ -707,17 +748,17 @@ func mark_recipes_seen() -> void:
 	save_game()
 
 
-func craft_left() -> float:
-	if craft_job.is_empty():
+func craft_left(station: String) -> float:
+	if not craft_jobs.has(station):
 		return 0.0
-	return maxf(0.0, craft_job["done_at"] - now())
+	return maxf(0.0, craft_jobs[station]["done_at"] - now())
 
 
 func _update_timers(t: float) -> void:
 	if sleep_until > 0.0 and t >= sleep_until:
 		sleep_until = 0.0
 		energy = max_energy()
-		health = Data.MAX_HEALTH
+		health = max_health()
 		notify("You wake up rested.")
 		changed.emit()
 
@@ -731,11 +772,14 @@ func _update_timers(t: float) -> void:
 			_check_quest()
 			changed.emit()
 
-	if not craft_job.is_empty() and t >= craft_job["done_at"]:
-		var recipe_id: String = craft_job["recipe"]
-		var count: int = craft_job.get("count", 1)
+	for station in craft_jobs.keys():
+		var job: Dictionary = craft_jobs[station]
+		if t < job["done_at"]:
+			continue
+		var recipe_id: String = job["recipe"]
+		var count: int = job.get("count", 1)
 		var r: Dictionary = Data.RECIPES[recipe_id]
-		craft_job = {}
+		craft_jobs.erase(station)
 		if r.has("tool"):
 			tools[r["tool"]] = true
 			if pinned_recipe == recipe_id:
@@ -822,7 +866,7 @@ func _reset_state() -> void:
 	structures = {}
 	for id in Data.STRUCTURES:
 		structures[id] = {"tier": 0, "busy_until": 0.0, "next_tier": 0}
-	craft_job = {}
+	craft_jobs = {}
 	sleep_until = 0.0
 	ad_day = ""
 	ads_today = 0
@@ -844,7 +888,7 @@ func save_game() -> void:
 		"level": level, "xp": xp,
 		"energy": energy, "health": health, "hunger": hunger, "thirst": thirst,
 		"inventory": inventory, "storage": storage, "tools": tools.keys(),
-		"structures": structures, "craft_job": craft_job,
+		"structures": structures, "craft_jobs": craft_jobs,
 		"sleep_until": sleep_until, "ad_day": ad_day, "ads_today": ads_today,
 		"quest_index": quest_index, "quest_progress": quest_progress,
 		"xp_boost_until": xp_boost_until,
@@ -887,9 +931,14 @@ func load_game() -> void:
 				"busy_until": float(s.get("busy_until", 0.0)),
 				"next_tier": int(s.get("next_tier", 0)),
 			}
-	var job: Dictionary = data.get("craft_job", {})
-	if job.has("recipe") and Data.RECIPES.has(job["recipe"]):
-		craft_job = {"recipe": job["recipe"], "count": int(job.get("count", 1)), "done_at": float(job.get("done_at", 0.0))}
+	craft_jobs = {}
+	var saved_jobs: Dictionary = data.get("craft_jobs", {})
+	if data.has("craft_job") and not data["craft_job"].is_empty():
+		saved_jobs["crafting"] = data["craft_job"] # save from before jobs were per station
+	for station in saved_jobs:
+		var job: Dictionary = saved_jobs[station]
+		if Data.STRUCTURES.has(station) and job.has("recipe") and Data.RECIPES.has(job["recipe"]):
+			craft_jobs[station] = {"recipe": job["recipe"], "count": int(job.get("count", 1)), "done_at": float(job.get("done_at", 0.0))}
 	sleep_until = float(data.get("sleep_until", 0.0))
 	ad_day = str(data.get("ad_day", ""))
 	ads_today = int(data.get("ads_today", 0))
@@ -966,8 +1015,8 @@ func dev_finish_timers() -> void:
 	for id in structures:
 		if structure_busy(id):
 			structures[id]["busy_until"] = now() - 1.0
-	if not craft_job.is_empty():
-		craft_job["done_at"] = now() - 1.0
+	for station in craft_jobs:
+		craft_jobs[station]["done_at"] = now() - 1.0
 	sleep_until = minf(sleep_until, now() - 1.0) if sleep_until > 0.0 else 0.0
 	_update_timers(now())
 	changed.emit()
