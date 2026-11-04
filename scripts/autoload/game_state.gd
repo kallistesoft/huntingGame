@@ -35,7 +35,7 @@ var ads_today := 0
 var quest_index := 0
 var quest_progress := 0
 var xp_boost_until := 0.0
-var boss_defeated := false
+var bosses_defeated := [] # boss ids (Data.BOSSES) the hunter has beaten
 var demo_done := false
 var player_position := Vector2.ZERO
 var has_player_position := false
@@ -174,8 +174,55 @@ func move_speed() -> float:
 	return speed
 
 
-func zone2_unlocked() -> bool:
-	return level >= Data.ZONE2_LEVEL
+# --- Zones -------------------------------------------------------------------
+
+## Whether zone i (index in Data.ZONES, or the one after the last) is open.
+func zone_unlocked(i: int) -> bool:
+	return zone_blocker(i) == ""
+
+
+## Why zone i is still closed ("" if it is open): level and/or boss.
+func zone_blocker(i: int) -> String:
+	if i <= 0:
+		return ""
+	var z: Dictionary = Data.zone(i)
+	if z.is_empty():
+		return "There is nothing further yet."
+	var parts := []
+	if level < z["unlock"]["level"]:
+		parts.append("reach level %d" % z["unlock"]["level"])
+	var boss: String = z["unlock"]["boss"]
+	if boss != "" and not bosses_defeated.has(boss):
+		parts.append("defeat the %s" % Data.BOSSES[boss]["name"])
+	return "" if parts.is_empty() else "To enter %s: %s." % [z["name"], " and ".join(parts)]
+
+
+## Index of the furthest unlocked zone that exists.
+func highest_zone() -> int:
+	var top := 0
+	for i in range(1, Data.ZONES.size()):
+		if zone_unlocked(i):
+			top = i
+	return top
+
+
+## Walking through the gate into zone i. Into a zone that is not built yet
+## (Data.NEXT_ZONE) it ends the demo.
+func cross_into(i: int) -> void:
+	var blocker := zone_blocker(i)
+	if blocker != "":
+		notify(blocker)
+		return
+	var z: Dictionary = Data.zone(i)
+	quest_event("travel", z["id"], 1)
+	if i >= Data.ZONES.size():
+		demo_done = true
+		changed.emit()
+		save_game()
+		demo_finished.emit()
+		return
+	notify("You enter %s." % z["name"])
+	changed.emit()
 
 
 ## Returns [xp into this level, xp needed for this level]; needed is 0 at max level.
@@ -360,46 +407,40 @@ func try_attack() -> bool:
 
 
 ## The Great Boar's charge connected.
-func on_boss_hit_player() -> void:
-	damage(Data.BOSS["hit_damage"], "The boar rams you!")
+func on_boss_hit_player(kind: String) -> void:
+	var b: Dictionary = Data.BOSSES[kind]
+	damage(b["hit_damage"], b["hit_text"])
 
 
-func on_boss_killed() -> void:
-	boss_defeated = true
+func on_boss_killed(kind: String) -> void:
+	var b: Dictionary = Data.BOSSES[kind]
+	if not bosses_defeated.has(kind):
+		bosses_defeated.append(kind)
 	var lost := false
-	for id in Data.BOSS["drops"]:
-		var n: int = Data.BOSS["drops"][id]
+	for id in b["drops"]:
+		var n: int = b["drops"][id]
 		if add_to_bag(id, n) < n:
 			lost = true
-	notify("You defeated the %s!" % Data.BOSS["name"])
+	notify("You defeated the %s!" % b["name"])
 	if lost:
 		notify("Bag full: some loot was left behind.")
-	gain_xp(Data.BOSS["xp"])
-	quest_event("boss", "boar", 1)
+	gain_xp(b["xp"])
+	quest_event("boss", kind, 1)
+	_announce_unlocks()
 	changed.emit()
 	save_game()
 
 
-## Why the hunter can't take the mountain pass yet, or "" if they can.
-func next_area_blocker() -> String:
-	var parts := []
-	if level < Data.NEXT_AREA["level"]:
-		parts.append("reach level %d" % Data.NEXT_AREA["level"])
-	if not boss_defeated:
-		parts.append("defeat the %s" % Data.BOSS["name"])
-	return "" if parts.is_empty() else "To cross: " + " and ".join(parts) + "."
-
-
-func take_mountain_pass() -> void:
-	var blocker := next_area_blocker()
-	if blocker != "":
-		notify(blocker)
-		return
-	quest_event("travel", "mountains", 1)
-	demo_done = true
-	changed.emit()
-	save_game()
-	demo_finished.emit()
+## Tells the player when a zone has just opened (after a level or a boss).
+func _announce_unlocks() -> void:
+	for i in range(1, Data.ZONES.size() + 1):
+		var z: Dictionary = Data.zone(i)
+		var u: Dictionary = z["unlock"]
+		var boss_ok: bool = u["boss"] == "" or bosses_defeated.has(u["boss"])
+		if level == u["level"] and boss_ok:
+			notify("%s is open!" % z["name"].capitalize())
+		elif level == u["level"] and not boss_ok:
+			notify("Defeat the %s to enter %s." % [Data.BOSSES[u["boss"]]["name"], z["name"]])
 
 
 func on_animal_killed(kind: String) -> void:
@@ -446,13 +487,14 @@ func eat_best() -> void:
 	notify("No food in your bag.")
 
 
-func start_sleep() -> void:
+## outside: sleeping on the ground (an outpost campfire), whatever the house tier.
+func start_sleep(outside := false) -> void:
 	if is_sleeping():
 		return
 	if energy >= max_energy():
 		notify("You are not tired.")
 		return
-	sleep_until = now() + sleep_duration()
+	sleep_until = now() + (Data.NO_HOUSE_SLEEP_TIME if outside else sleep_duration())
 	notify("You fall asleep…")
 	changed.emit()
 	save_game()
@@ -717,8 +759,7 @@ func gain_xp(amount: int) -> void:
 	xp += xp_with_boost(amount)
 	while level < Data.LEVEL_XP.size() and xp >= Data.LEVEL_XP[level]:
 		level += 1
-		if level == Data.ZONE2_LEVEL:
-			notify("Level %d: the east forest is open!" % level)
+		_announce_unlocks()
 		leveled_up.emit(level)
 	_check_quest()
 
@@ -736,7 +777,7 @@ func quest_progress_count() -> int:
 	match q["type"]:
 		"build": return 1 if structure_tier(q["target"]) >= 1 else 0
 		"level": return level
-		"boss": return 1 if boss_defeated else 0
+		"boss": return 1 if bosses_defeated.has(q["target"]) else 0
 	return quest_progress
 
 
@@ -788,7 +829,7 @@ func _reset_state() -> void:
 	quest_index = 0
 	quest_progress = 0
 	xp_boost_until = 0.0
-	boss_defeated = false
+	bosses_defeated = []
 	demo_done = false
 	player_position = Vector2.ZERO
 	has_player_position = false
@@ -807,7 +848,7 @@ func save_game() -> void:
 		"sleep_until": sleep_until, "ad_day": ad_day, "ads_today": ads_today,
 		"quest_index": quest_index, "quest_progress": quest_progress,
 		"xp_boost_until": xp_boost_until,
-		"boss_defeated": boss_defeated, "demo_done": demo_done,
+		"bosses_defeated": bosses_defeated, "demo_done": demo_done,
 		"player_position": [player_position.x, player_position.y],
 		"pinned_recipe": pinned_recipe, "seen_recipes": seen_recipes,
 	}
@@ -855,7 +896,12 @@ func load_game() -> void:
 	quest_index = int(data.get("quest_index", 0))
 	quest_progress = int(data.get("quest_progress", 0))
 	xp_boost_until = float(data.get("xp_boost_until", 0.0))
-	boss_defeated = bool(data.get("boss_defeated", false))
+	bosses_defeated = []
+	for id in data.get("bosses_defeated", []):
+		if Data.BOSSES.has(id):
+			bosses_defeated.append(id)
+	if bool(data.get("boss_defeated", false)) and not bosses_defeated.has("boar"):
+		bosses_defeated.append("boar") # save from before bosses were a list
 	demo_done = bool(data.get("demo_done", false))
 	var pos: Array = data.get("player_position", [])
 	if pos.size() == 2:
@@ -930,3 +976,11 @@ func dev_finish_timers() -> void:
 func dev_reset_seen() -> void:
 	seen_recipes = []
 	changed.emit()
+
+
+func dev_defeat_boss(kind: String) -> void:
+	if not bosses_defeated.has(kind):
+		bosses_defeated.append(kind)
+	_check_quest()
+	changed.emit()
+	save_game()

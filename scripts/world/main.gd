@@ -1,10 +1,9 @@
 extends Node3D
-## Builds the 3D world in code: zone 1 (camp, small animals), zone 2 (east
-## forest, opens at Data.ZONE2_LEVEL), the hunter, the camera and the UI.
-## Map rectangles are on the ground plane: Rect2 x = world x, Rect2 y = world z.
+## Builds the 3D world in code from Data.ZONES: ground, props, animals,
+## bosses, gates and outposts per zone, plus the camp, the hunter, the camera
+## and the UI. Map rectangles are on the ground plane: Rect2 x = world x,
+## Rect2 y = world z.
 
-const ZONE1 := Rect2(0, 0, 45, 32.5)
-const ZONE2 := Rect2(45, 0, 40, 32.5)
 const CAMP := Rect2(5.5, 11, 13, 10.5)
 const PLAYER_START := Vector2(12, 16.5)
 const HOUSE_SPOT := Vector2(2.75, 7.75) # house position inside the camp
@@ -21,13 +20,13 @@ const ResourceNode := preload("res://scripts/world/resource_node.gd")
 const Animal := preload("res://scripts/world/animal.gd")
 const Station := preload("res://scripts/world/station.gd")
 const Boss := preload("res://scripts/world/boss.gd")
-const PassGate := preload("res://scripts/world/pass_gate.gd")
+const ZoneGate := preload("res://scripts/world/zone_gate.gd")
+const Outpost := preload("res://scripts/world/outpost.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
 
 var player: Node3D
 var hud: Control
 var camera: Camera3D
-var boss: Node3D
 var _rng := RandomNumberGenerator.new()
 var _shake := 0.0
 var _taken: Array[Vector3] = [] # x, z, radius of placed props, to keep them apart
@@ -38,8 +37,6 @@ func _ready() -> void:
 	_add_environment()
 
 	var ground := Ground.new()
-	ground.zone1 = ZONE1
-	ground.zone2 = ZONE2
 	ground.camp = CAMP
 	add_child(ground)
 
@@ -61,36 +58,48 @@ func _ready() -> void:
 	_add_station("house", CAMP.position + HOUSE_SPOT)
 	_add_station("board", CAMP.position + Vector2(10, 7.75))
 
-	# Keep the boar's lair and the mountain pass clear of trees and rocks.
-	var lair: Vector2 = Data.BOSS["lair"]
-	_taken.append(Vector3(lair.x, lair.y, Data.BOSS["lair_radius"]))
-	var pass_pos: Vector2 = Data.NEXT_AREA["position"]
-	_taken.append(Vector3(pass_pos.x - 1.0, pass_pos.y, 4.0))
-	boss = Boss.new()
-	boss.player = player
-	boss.world = self
-	boss.position = Vector3(lair.x, 0, lair.y)
-	add_child(boss)
-	var gate := PassGate.new()
-	gate.position = Vector3(pass_pos.x, 0, pass_pos.y)
-	gate.rotation_degrees.y = -90 # faces back into the forest; mountains behind it to the east
-	add_child(gate)
+	# Reserve the spots that must stay clear of trees and rocks, then fill
+	# each zone from its data.
+	for i in Data.ZONES.size():
+		var z: Dictionary = Data.ZONES[i]
+		if z["boss"] != "":
+			var b: Dictionary = Data.BOSSES[z["boss"]]
+			_taken.append(Vector3(b["lair"].x, b["lair"].y, b["lair_radius"]))
+		if z["outpost"] != null:
+			_taken.append(Vector3(z["outpost"].x, z["outpost"].y, 3.0))
+	for i in range(1, Data.ZONES.size() + 1):
+		var entry: Dictionary = Data.zone(i)["entry"]
+		if entry.get("kind", "") == "pass":
+			_taken.append(Vector3(entry["position"].x - 1.0, entry["position"].y, 4.0))
 
-	_add_prop("pond", Vector2(34, 7.5))
-	_add_prop("pond", Vector2(67, 24))
+	for i in Data.ZONES.size():
+		var z: Dictionary = Data.ZONES[i]
+		for pond in z["ponds"]:
+			_add_prop("pond", pond)
+		if z["boss"] != "":
+			var boss := Boss.new()
+			boss.kind = z["boss"]
+			boss.player = player
+			boss.world = self
+			boss.position = Vector3(Data.BOSSES[z["boss"]]["lair"].x, 0, Data.BOSSES[z["boss"]]["lair"].y)
+			add_child(boss)
+		if z["outpost"] != null:
+			_add_outpost(z["outpost"])
+	for i in range(1, Data.ZONES.size() + 1):
+		var entry: Dictionary = Data.zone(i)["entry"]
+		if entry.get("kind", "") == "pass":
+			var gate := ZoneGate.new()
+			gate.target_zone = i
+			gate.position = Vector3(entry["position"].x, 0, entry["position"].y)
+			gate.rotation_degrees.y = entry.get("facing", 0)
+			add_child(gate)
 
-	_scatter("tree", ZONE1, 30)
-	_scatter("rock", ZONE1, 14)
-	_scatter("bush", ZONE1, 12)
-	_scatter("tree", ZONE2, 40)
-	_scatter("rock", ZONE2, 20)
-	_scatter("bush", ZONE2, 10)
-
-	_spawn_animals("rabbit", ZONE1, 6)
-	_spawn_animals("squirrel", ZONE1, 5)
-	_spawn_animals("rabbit", ZONE2, 4)
-	_spawn_animals("squirrel", ZONE2, 3)
-	_spawn_animals("deer", ZONE2, 4)
+	for z in Data.ZONES:
+		for kind in z["resources"]:
+			_scatter(kind, z["rect"], z["resources"][kind])
+	for z in Data.ZONES:
+		for kind in z["animals"]:
+			_spawn_animals(kind, z["rect"], z["animals"][kind])
 
 	Game.respawned.connect(_on_respawned)
 
@@ -164,12 +173,29 @@ func _on_respawned(at_house: bool) -> void:
 	camera.position = player.position + CAMERA_OFFSET
 
 
-## Where the hunter may walk: zone 1, plus zone 2 once unlocked.
+## Where the hunter may walk: every unlocked zone.
 func walk_bounds() -> Rect2:
-	var bounds := ZONE1.grow(-0.5)
-	if Game.zone2_unlocked():
-		bounds = ZONE1.merge(ZONE2).grow(-0.5)
+	var bounds: Rect2 = Data.ZONES[0]["rect"]
+	for i in range(1, Data.ZONES.size()):
+		if Game.zone_unlocked(i):
+			bounds = bounds.merge(Data.ZONES[i]["rect"])
+	return bounds.grow(-0.5)
+
+
+## The whole map, unlocked or not.
+func map_bounds() -> Rect2:
+	var bounds: Rect2 = Data.ZONES[0]["rect"]
+	for z in Data.ZONES:
+		bounds = bounds.merge(z["rect"])
 	return bounds
+
+
+## The boss node of a kind ("boar"), or null.
+func boss_node(kind: String) -> Node3D:
+	for node in get_tree().get_nodes_in_group("boss"):
+		if node.kind == kind:
+			return node
+	return null
 
 
 # --- Feedback effects ---------------------------------------------------------
@@ -227,13 +253,14 @@ func fx_built(node: Node3D, tier: int) -> void:
 
 
 func fx_kill_boss(node: Node3D) -> void:
+	var b: Dictionary = Data.BOSSES[node.kind]
 	var top := node.global_position + Vector3(0, 2.6, 0)
 	var line := 0
-	for item in Data.BOSS["drops"]:
-		Fx.float_text(self, top + Vector3(0, 0.45 * line, 0), "+%d %s" % [Data.BOSS["drops"][item], Data.item_name(item)], Style.TEXT, 0.12 * line)
+	for item in b["drops"]:
+		Fx.float_text(self, top + Vector3(0, 0.45 * line, 0), "+%d %s" % [b["drops"][item], Data.item_name(item)], Style.TEXT, 0.12 * line)
 		hud.fly_to_bag(camera.unproject_position(top), Style.ITEM_COLORS.get(item, Color.WHITE), 3)
 		line += 1
-	Fx.float_text(self, top + Vector3(0, -0.45, 0), "+%d XP" % Game.xp_with_boost(Data.BOSS["xp"]), Style.XP, 0.12 * line)
+	Fx.float_text(self, top + Vector3(0, -0.45, 0), "+%d XP" % Game.xp_with_boost(b["xp"]), Style.XP, 0.12 * line)
 	Fx.burst(self, node.global_position + Vector3(0, 1.0, 0), Style.ACCENT, 40, 0.12, 6.0)
 	shake(0.4)
 	vibrate(150)
@@ -243,12 +270,27 @@ func open_station(station: Node3D) -> void:
 	hud.open_station(station.kind)
 
 
+func open_outpost() -> void:
+	hud.open_outpost()
+
+
 func _add_station(kind: String, pos: Vector2) -> void:
 	var s := Station.new()
 	s.kind = kind
 	s.position = Vector3(pos.x, 0, pos.y)
 	s.world = self
 	add_child(s)
+
+
+## An outpost is a chest (shares the camp storage) and a campfire (sleep).
+func _add_outpost(pos: Vector2) -> void:
+	for spec in [["chest", Vector2(-1.2, 0)], ["fire", Vector2(1.2, 0.4)]]:
+		var o := Outpost.new()
+		o.part = spec[0]
+		o.world = self
+		var p: Vector2 = pos + spec[1]
+		o.position = Vector3(p.x, 0, p.y)
+		add_child(o)
 
 
 func _add_prop(kind: String, pos: Vector2) -> void:

@@ -34,7 +34,54 @@ const ADS_PER_DAY := 10
 
 ## Total XP needed to reach level (index + 1). Level 1 starts at 0 XP.
 const LEVEL_XP := [0, 50, 170, 390, 700, 1100, 1600, 2200, 2900, 3700]
-const ZONE2_LEVEL := 3
+
+# --- Zones -------------------------------------------------------------------
+
+## The map, zone by zone, laid out left to right. Everything that differs
+## between zones lives here, so a new zone is a new entry (plus its items,
+## animals, boss, recipes and quests). Rects are on the ground plane.
+##   unlock:    level needed, and the boss (id in BOSSES) to defeat first ("" for none)
+##   entry:     how the zone is closed until unlocked: {"kind": "fence"} draws a
+##              fence along its west edge; {"kind": "pass", "name", "position",
+##              "facing"} is a gate to walk through (an interactable landmark)
+##   resources: node kind -> how many to scatter; animals: kind -> how many
+##   ponds:     water spots; boss: id in BOSSES or ""; outpost: chest + campfire spot or null
+const ZONES := [
+	{
+		"id": "meadow", "name": "the meadow", "label": "",
+		"rect": Rect2(0, 0, 45, 32.5),
+		"ground": Color(0.36, 0.52, 0.26), "grass": Color(0.42, 0.62, 0.3), "grass_count": 1400, "flowers": 160,
+		"unlock": {"level": 1, "boss": ""}, "entry": {},
+		"resources": {"tree": 30, "rock": 14, "bush": 12},
+		"animals": {"rabbit": 6, "squirrel": 5},
+		"ponds": [Vector2(34, 7.5)], "boss": "", "outpost": null,
+	},
+	{
+		"id": "east_forest", "name": "the east forest", "label": "EAST FOREST",
+		"rect": Rect2(45, 0, 40, 32.5),
+		"ground": Color(0.24, 0.4, 0.22), "grass": Color(0.3, 0.5, 0.26), "grass_count": 1300, "flowers": 0,
+		"unlock": {"level": 3, "boss": ""}, "entry": {"kind": "fence"},
+		"resources": {"tree": 40, "rock": 20, "bush": 10},
+		"animals": {"rabbit": 4, "squirrel": 3, "deer": 4},
+		"ponds": [Vector2(67, 24)], "boss": "boar", "outpost": Vector2(49.5, 17),
+	},
+]
+
+## The zone after the last one: not built yet. Its gate stands at the end of
+## the last zone; crossing it ends the demo. When the zone is added to ZONES,
+## move this gate into its "entry" and point NEXT_ZONE at the one after.
+const NEXT_ZONE := {
+	"id": "mountains", "name": "the mountains",
+	"unlock": {"level": 5, "boss": "boar"},
+	"entry": {"kind": "pass", "name": "Mountain pass", "position": Vector2(83.5, 25), "facing": -90},
+}
+
+
+## Zone i's data; NEXT_ZONE for the one after the last; {} beyond that.
+static func zone(i: int) -> Dictionary:
+	if i < ZONES.size():
+		return ZONES[i]
+	return NEXT_ZONE if i == ZONES.size() else {}
 
 # --- Items -------------------------------------------------------------------
 
@@ -88,36 +135,36 @@ const RESOURCES := {
 
 const ANIMALS := {
 	"rabbit": {
-		"name": "Rabbit", "zone": "zone 1", "hp": 1, "size": 0.25, "color": Color(0.86, 0.82, 0.72),
+		"name": "Rabbit", "hp": 1, "size": 0.25, "color": Color(0.86, 0.82, 0.72),
 		"wander_speed": 1.0, "flee_speed": 3.75, "flee_radius": 3.75,
 		"xp": 5, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"squirrel": {
-		"name": "Squirrel", "zone": "zone 1", "hp": 1, "size": 0.18, "color": Color(0.75, 0.42, 0.18),
+		"name": "Squirrel", "hp": 1, "size": 0.18, "color": Color(0.75, 0.42, 0.18),
 		"wander_speed": 1.25, "flee_speed": 4.1, "flee_radius": 3.25,
 		"xp": 4, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"deer": {
-		"name": "Deer", "zone": "east forest", "hp": 3, "size": 0.45, "color": Color(0.6, 0.4, 0.22),
+		"name": "Deer", "hp": 3, "size": 0.45, "color": Color(0.6, 0.4, 0.22),
 		"wander_speed": 0.9, "flee_speed": 4.4, "flee_radius": 5.0,
 		"xp": 12, "drops": {"raw_meat": 3, "fur": 2, "hide": 1, "antler": 1}, "respawn": 60.0,
 	},
 }
 
-## The boss of the demo: the Great Boar in its lair at the far end of the east
-## forest. It charges instead of fleeing; a charge that hits hurts the hunter
-## and knocks them back. After a charge it is dizzy for a moment.
-const BOSS := {
-	"name": "Great Boar", "hp": 24, "size": 0.9, "color": Color(0.32, 0.22, 0.16),
-	"lair": Vector2(76, 9), "lair_radius": 6.0,
-	"walk_speed": 1.6, "charge_speed": 9.0, "aggro_radius": 8.0,
-	"windup": 0.9, "charge_time": 0.8, "dizzy": 2.2, "dizzy_damage_mult": 2,
-	"hit_damage": 30.0, "knockback": 4.0, "regen_per_sec": 0.5,
-	"xp": 150, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2},
+## Bosses, one per zone (ZONES[i].boss names the id). A boss lives in its
+## lair, charges instead of fleeing; a charge that hits hurts the hunter and
+## knocks them back. After a charge it is dizzy for a moment.
+const BOSSES := {
+	"boar": {
+		"name": "Great Boar", "hit_text": "The boar rams you!",
+		"hp": 24, "size": 0.9, "color": Color(0.32, 0.22, 0.16),
+		"lair": Vector2(76, 9), "lair_radius": 6.0,
+		"walk_speed": 1.6, "charge_speed": 9.0, "aggro_radius": 8.0,
+		"windup": 0.9, "charge_time": 0.8, "dizzy": 2.2, "dizzy_damage_mult": 2,
+		"hit_damage": 30.0, "knockback": 4.0, "regen_per_sec": 0.5,
+		"xp": 150, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2},
+	},
 }
-
-## The mountain pass at the end of the east forest. Crossing it ends the demo.
-const NEXT_AREA := {"name": "Mountain pass", "level": 5, "position": Vector2(83.5, 25)}
 
 ## Animals run for this long, then stop to catch their breath.
 const FLEE_STAMINA := 3.0
@@ -238,6 +285,14 @@ func recipe_name(id: String) -> String:
 	return item_name(r["tool"] if r.has("tool") else r["item"])
 
 
+## Name of the first zone an animal lives in, e.g. "the east forest".
+static func animal_zone(kind: String) -> String:
+	for z in ZONES:
+		if z["animals"].has(kind):
+			return z["name"]
+	return ""
+
+
 ## Lower-case plural of a creature or resource name: "rabbits", "deer", "berry bushes".
 static func plural(name: String) -> String:
 	var n := name.to_lower()
@@ -262,14 +317,15 @@ func sources(item: String) -> String:
 	for id in ANIMALS:
 		var a: Dictionary = ANIMALS[id]
 		if a["drops"].has(item):
-			var zone: String = a.get("zone", "")
-			if not by_zone.has(zone):
-				by_zone[zone] = []
-			by_zone[zone].append(plural(a["name"]))
-	for zone in by_zone:
-		parts.append(", ".join(by_zone[zone]) + (" (%s)" % zone if zone != "" else ""))
-	if BOSS["drops"].has(item):
-		parts.append("the %s" % BOSS["name"])
+			var where := animal_zone(id)
+			if not by_zone.has(where):
+				by_zone[where] = []
+			by_zone[where].append(plural(a["name"]))
+	for where in by_zone:
+		parts.append(", ".join(by_zone[where]) + (" (%s)" % where if where != "" else ""))
+	for id in BOSSES:
+		if BOSSES[id]["drops"].has(item):
+			parts.append("the %s" % BOSSES[id]["name"])
 	for id in RECIPES:
 		var r: Dictionary = RECIPES[id]
 		if r.get("item", "") == item:

@@ -1,5 +1,5 @@
 extends Node3D
-## The Great Boar, boss of the demo. Lives in its lair in the east forest.
+## A zone boss (Data.BOSSES[kind]), e.g. the Great Boar. Lives in its lair.
 ## When the hunter comes close it paws the ground (wind-up, glows red), then
 ## charges in a straight line. A charge that connects hurts and knocks the
 ## hunter back. After each charge it is dizzy: the moment to strike, for
@@ -12,6 +12,7 @@ const RAGE_COLOR := Color(1, 0.15, 0.1, 0.55)
 
 enum State { IDLE, ALERT, WINDUP, CHARGE, DIZZY, DEAD }
 
+var kind := "boar"
 var player: Node3D
 var world: Node3D
 var hp := 0.0
@@ -38,20 +39,20 @@ func _ready() -> void:
 	add_to_group("interactable")
 	add_to_group("animal")
 	add_to_group("boss")
-	hp = Data.BOSS["hp"]
+	hp = Data.BOSSES[kind]["hp"]
 	_build_shape()
-	_stars = Shapes.label(self, "✦ ✦ ✦", Vector3(0, Data.BOSS["size"] * 3.0, 0), 40)
+	_stars = Shapes.label(self, "✦ ✦ ✦", Vector3(0, Data.BOSSES[kind]["size"] * 3.0, 0), 40)
 	_stars.modulate = Color(1, 0.9, 0.3)
 	_stars.visible = false
 	_home_target = _lair()
-	if Game.boss_defeated:
+	if Game.bosses_defeated.has(kind):
 		alive = false
 		visible = false
 		_state = State.DEAD
 
 
 func _lair() -> Vector2:
-	return Data.BOSS["lair"]
+	return Data.BOSSES[kind]["lair"]
 
 
 func _process(delta: float) -> void:
@@ -64,7 +65,7 @@ func _process(delta: float) -> void:
 		if _flash <= 0.0:
 			_set_overlay(null)
 
-	var b: Dictionary = Data.BOSS
+	var b: Dictionary = Data.BOSSES[kind]
 	var here := Shapes.flat(self)
 	var to_player := Shapes.flat(player) - here
 	var player_near: bool = to_player.length() < b["aggro_radius"] and not Game.is_sleeping() and not Game.is_dead() \
@@ -113,7 +114,7 @@ func _process(delta: float) -> void:
 			if not _charge_hit and to_player.length() < b["size"] * 1.6:
 				_charge_hit = true
 				player.knockback(_charge_dir * b["knockback"])
-				Game.on_boss_hit_player()
+				Game.on_boss_hit_player(kind)
 				world.shake(0.35)
 				world.vibrate(120)
 			if _timer <= 0.0:
@@ -142,7 +143,7 @@ func _face(dir: Vector2, delta: float) -> void:
 
 
 func _animate(delta: float, speed: float) -> void:
-	var s: float = Data.BOSS["size"]
+	var s: float = Data.BOSSES[kind]["size"]
 	if _state == State.WINDUP:
 		# Paws the ground with a front leg and lowers the head.
 		_legs[0].rotation.x = 0.6 * sin(_time * 18.0)
@@ -166,7 +167,7 @@ func is_available() -> bool:
 
 
 func action_label() -> String:
-	return "Fight the %s" % Data.BOSS["name"]
+	return "Fight the %s" % Data.BOSSES[kind]["name"]
 
 
 func action_icon() -> String:
@@ -180,7 +181,7 @@ func is_dizzy() -> bool:
 func interact(_player: Node3D) -> void:
 	if not Game.try_attack():
 		return
-	var damage := Game.weapon_damage() * (Data.BOSS["dizzy_damage_mult"] if is_dizzy() else 1)
+	var damage: int = Game.weapon_damage() * (Data.BOSSES[kind]["dizzy_damage_mult"] if is_dizzy() else 1)
 	hp -= damage
 	_flash = 0.12
 	_set_overlay(Shapes.material(HIT_COLOR))
@@ -196,7 +197,7 @@ func interact(_player: Node3D) -> void:
 	_state = State.DEAD
 	_stars.visible = false
 	_set_overlay(null)
-	Game.on_boss_killed()
+	Game.on_boss_killed(kind)
 	world.fx_kill_boss(self)
 	var t := create_tween()
 	t.tween_property(_body, "rotation:z", PI / 2.0, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
@@ -227,8 +228,8 @@ func _mesh(parent: Node3D, mesh: Mesh, color: Color, pos := Vector3.ZERO, scale 
 
 ## Built facing +Z like the other animals.
 func _build_shape() -> void:
-	var s: float = Data.BOSS["size"]
-	var c: Color = Data.BOSS["color"]
+	var s: float = Data.BOSSES[kind]["size"]
+	var c: Color = Data.BOSSES[kind]["color"]
 	_body = _pivot(self, Vector3.ZERO)
 	_torso = _pivot(_body, Vector3(0, s * 1.1, 0))
 	_mesh(_torso, Shapes.capsule(s * 0.75, s * 2.6), c, Vector3.ZERO, Vector3(1.0, 1.0, 1.0)).rotation_degrees.x = 90

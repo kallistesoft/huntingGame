@@ -312,6 +312,20 @@ func _build_storage() -> void:
 				[["Take 1", true, Game.take_from_storage.bind(id, 1)], ["Take all", true, Game.take_from_storage.bind(id, n)]])
 
 
+## The outpost chest: the camp storage, reachable from another zone.
+func open_outpost() -> void:
+	_station_kind = "outpost"
+	open("Outpost chest", _build_outpost)
+
+
+func _build_outpost() -> void:
+	if Game.structure_tier("storage") == 0:
+		_label("The chest is linked to your camp storage. Build the storage at camp first.", Style.MUTED)
+		return
+	_label("Linked to the camp storage.", Style.MUTED, 17)
+	_build_storage()
+
+
 func _build_house() -> void:
 	if Game.is_sleeping():
 		_live_label(func() -> String: return "Sleeping… %s left" % fmt_time(Game.sleep_left()))
@@ -420,15 +434,19 @@ func _build_dev_menu() -> void:
 	_row("Level %d" % Game.level, levels)
 	_row("Finish every running timer now.", [["Finish", true, Game.dev_finish_timers]])
 	_row("Forget which recipes you have seen (NEW badges come back).", [["Reset", true, Game.dev_reset_seen]])
+	for id in Data.BOSSES:
+		_row("%s: %s" % [Data.BOSSES[id]["name"], "defeated" if Game.bosses_defeated.has(id) else "alive"],
+			[["Defeat", not Game.bosses_defeated.has(id), Game.dev_defeat_boss.bind(id)]])
 	var world: Node3D = get_parent().player.get_parent() if get_parent().get("player") != null else null
 	if world != null:
-		_row("Teleport", [
-			["Camp", true, func() -> void:
-				_teleport(world, world.CAMP.get_center())],
-			["East forest", true, func() -> void:
-				_teleport(world, world.ZONE2.get_center())],
-			["Boar lair", true, func() -> void:
-				_teleport(world, Data.BOSS["lair"] + Vector2(-6, 0))]])
+		var spots := [["Camp", true, func() -> void: _teleport(world, world.CAMP.get_center())]]
+		for i in range(1, Data.ZONES.size()):
+			var z: Dictionary = Data.ZONES[i]
+			spots.append([z["name"].capitalize(), true, func() -> void: _teleport(world, z["rect"].get_center())])
+		for id in Data.BOSSES:
+			var lair: Vector2 = Data.BOSSES[id]["lair"]
+			spots.append([Data.BOSSES[id]["name"], true, func() -> void: _teleport(world, lair + Vector2(-6, 0))])
+		_row("Teleport (locked zones stay locked)", spots)
 
 
 func _teleport(world: Node3D, to: Vector2) -> void:

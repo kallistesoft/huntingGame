@@ -26,7 +26,7 @@ func _ready() -> void:
 	await _test_batch_pin_and_speed_up()
 	await _test_panels()
 	_test_collect_quest()
-	_test_levels_and_zone()
+	await _test_levels_and_zone()
 	await _test_death()
 	await _test_boss_and_pass()
 	_test_save_load()
@@ -114,7 +114,7 @@ func _test_build_and_craft() -> void:
 func _test_hunt() -> void:
 	print("Hunting")
 	for i in 2:
-		var rabbit := _nearest(func(n: Node) -> bool: return n.get("kind") == "rabbit" and n.is_available() and n.zone.end.x <= 45)
+		var rabbit := _nearest(func(n: Node) -> bool: return n.get("kind") == "rabbit" and n.is_available() and n.zone.end.x <= Data.ZONES[0]["rect"].end.x)
 		var guard := 0
 		while rabbit.alive and guard < 10:
 			guard += 1
@@ -232,10 +232,28 @@ func _test_collect_quest() -> void:
 
 func _test_levels_and_zone() -> void:
 	print("Levels and zone 2")
-	check(not Game.zone2_unlocked() or Game.level >= Data.ZONE2_LEVEL, "zone 2 locked below level %d" % Data.ZONE2_LEVEL)
-	Game.gain_xp(Data.LEVEL_XP[Data.ZONE2_LEVEL - 1])
-	check(Game.level >= Data.ZONE2_LEVEL, "reached level %d" % Data.ZONE2_LEVEL)
-	check(world.walk_bounds().end.x > world.ZONE1.end.x, "east forest is walkable")
+	var need: int = Data.ZONES[1]["unlock"]["level"]
+	check(not Game.zone_unlocked(1) or Game.level >= need, "zone 2 locked below level %d" % need)
+	if not Game.zone_unlocked(1):
+		check(world.walk_bounds().end.x <= Data.ZONES[0]["rect"].end.x, "walk bounds stop at the fence while locked")
+	Game.gain_xp(Data.LEVEL_XP[need - 1])
+	check(Game.level >= need, "reached level %d" % need)
+	check(Game.zone_unlocked(1) and world.walk_bounds().end.x > Data.ZONES[0]["rect"].end.x, "east forest is walkable")
+	check(Game.highest_zone() == 1, "highest zone is the east forest")
+	await _frames(2)
+	var chest := _nearest(func(n: Node) -> bool: return n.get("part") == "chest")
+	check(chest != null, "east forest has an outpost chest")
+	Game.storage = {"wood": 3}
+	Game.inventory = {"stone": 2}
+	player.position = chest.position + Vector3(1.0, 0, 0)
+	player._cooldown = 0.0
+	player.do_action()
+	await _frames(2)
+	check(world.hud._panel.visible and world.hud._panel._title.text == "Outpost chest", "outpost chest opens the storage window")
+	Game.deposit_all()
+	check(Game.storage.get("stone", 0) == 2 and Game.inventory.is_empty(), "outpost chest shares the camp storage")
+	world.hud._panel.close()
+	await _frames(2)
 
 
 func _test_death() -> void:
@@ -286,9 +304,11 @@ func _test_death() -> void:
 
 func _test_boss_and_pass() -> void:
 	print("Boss and mountain pass")
-	var boss: Node3D = world.boss
-	Game.take_mountain_pass()
+	var boss: Node3D = world.boss_node("boar")
+	var next_zone := Data.ZONES.size()
+	Game.cross_into(next_zone)
 	check(not Game.demo_done, "mountain pass closed before the boss")
+	check("Great Boar" in Game.zone_blocker(next_zone), "gate blocker names the boss")
 
 	# A charge that connects hurts and pushes the hunter back.
 	Game.health = Data.MAX_HEALTH
@@ -299,7 +319,7 @@ func _test_boss_and_pass() -> void:
 	boss._charge_dir = Vector2(0, 1)
 	boss._charge_hit = false
 	await _frames(10)
-	check(Game.health <= Data.MAX_HEALTH - Data.BOSS["hit_damage"] + 0.5, "boar charge hurts")
+	check(Game.health <= Data.MAX_HEALTH - Data.BOSSES["boar"]["hit_damage"] + 0.5, "boar charge hurts")
 
 	Game.tools["bow"] = true
 	Game.inventory = {}
@@ -311,12 +331,12 @@ func _test_boss_and_pass() -> void:
 		player._cooldown = 0.0
 		player.do_action()
 		await _frames(3)
-	check(Game.boss_defeated, "Great Boar defeated")
-	check(Game.inventory.get("tusk", 0) == Data.BOSS["drops"]["tusk"], "boar dropped tusks")
+	check(Game.bosses_defeated.has("boar"), "Great Boar defeated")
+	check(Game.inventory.get("tusk", 0) == Data.BOSSES["boar"]["drops"]["tusk"], "boar dropped tusks")
 
-	while Game.level < Data.NEXT_AREA["level"]:
+	while Game.level < Data.NEXT_ZONE["unlock"]["level"]:
 		Game.gain_xp(100)
-	Game.take_mountain_pass()
+	Game.cross_into(next_zone)
 	check(Game.demo_done, "mountain pass ends the demo")
 	await _frames(2)
 	check(world.hud._end_screen.visible, "end of demo screen shown")
@@ -335,4 +355,11 @@ func _test_save_load() -> void:
 	check(Game.storage == storage, "storage restored")
 	check(Game.structure_tier("crafting") == tier, "camp restored")
 	check(Game.has_tool("spear"), "tools restored")
-	check(Game.boss_defeated and Game.demo_done, "boss and demo end restored")
+	check(Game.bosses_defeated.has("boar") and Game.demo_done, "boss and demo end restored")
+	# A save from before bosses were a list still counts the boar as beaten.
+	Game.bosses_defeated = []
+	var f := FileAccess.open(Game.SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"version": 1, "level": 5, "boss_defeated": true}))
+	f.close()
+	Game.load_game()
+	check(Game.bosses_defeated == ["boar"], "old boss_defeated flag migrates to the list")

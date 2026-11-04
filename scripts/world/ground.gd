@@ -1,47 +1,51 @@
 extends Node3D
-## Placeholder ground: grass for each zone, the camp clearing, and the fence
-## that closes the east forest until it is unlocked.
+## Placeholder ground built from Data.ZONES: a grass plane, tufts and label
+## per zone, the camp clearing, every boss lair, and a fence across the west
+## edge of each zone whose entry is a fence, shown until the zone is unlocked.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
 
-var zone1: Rect2
-var zone2: Rect2
 var camp: Rect2
 
-var _fence: Node3D
+var _fences := {} # zone index -> fence node
 
 
 func _ready() -> void:
 	# Wild land around the playable zones so the camera never shows the void.
-	_plane(zone1.merge(zone2).grow(40), Color(0.22, 0.34, 0.18), -0.02)
-	_plane(zone1, Color(0.36, 0.52, 0.26), 0.0)
-	_plane(zone2, Color(0.24, 0.4, 0.22), 0.0)
+	var whole: Rect2 = Data.ZONES[0]["rect"]
+	for z in Data.ZONES:
+		whole = whole.merge(z["rect"])
+	_plane(whole.grow(40), Color(0.22, 0.34, 0.18), -0.02)
+
+	for i in Data.ZONES.size():
+		var z: Dictionary = Data.ZONES[i]
+		var rect: Rect2 = z["rect"]
+		_plane(rect, z["ground"], 0.0)
+		if z["label"] != "":
+			Shapes.label(self, z["label"], Vector3(rect.position.x + 4, 1.5, rect.position.y + 3), 96)
+		_add_grass(rect, z["grass_count"], z["grass"], i)
+		if z["flowers"] > 0:
+			_add_flowers(rect, z["flowers"])
+		if z["boss"] != "":
+			_add_lair(Data.BOSSES[z["boss"]])
+		if z["entry"].get("kind", "") == "fence":
+			_add_fence(i)
+
 	_plane(camp, Color(0.62, 0.52, 0.36), 0.01)
 	var camp_label := Shapes.label(self, "CAMP", Vector3(camp.position.x + 1.2, 0.05, camp.end.y - 0.6), 96)
 	camp_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	camp_label.rotation_degrees.x = -90
 	camp_label.modulate = Color(1, 1, 1, 0.6)
 	camp_label.no_depth_test = false
-	Shapes.label(self, "EAST FOREST", Vector3(zone2.position.x + 4, 1.5, zone2.position.y + 3), 96)
 
-	_add_lair()
-	_add_grass(zone1, 1400, Color(0.42, 0.62, 0.3))
-	_add_grass(zone2, 1300, Color(0.3, 0.5, 0.26))
-	_add_flowers(zone1, 160)
+	_refresh_fences()
+	Game.leveled_up.connect(func(_level: int) -> void: _refresh_fences())
+	Game.changed.connect(_refresh_fences)
 
-	_fence = Node3D.new()
-	add_child(_fence)
-	var x := zone2.position.x
-	var wood := Color(0.5, 0.32, 0.14)
-	var z := zone2.position.y + 0.5
-	while z < zone2.end.y:
-		Shapes.add(_fence, Shapes.box(Vector3(0.2, 1.2, 0.2)), wood, Vector3(x, 0.6, z))
-		z += 1.5
-	for h in [0.4, 0.9]:
-		Shapes.add(_fence, Shapes.box(Vector3(0.1, 0.12, zone2.size.y)), wood.darkened(0.2), Vector3(x, h, zone2.get_center().y))
-	Shapes.label(_fence, "Reach level %d to cross" % Data.ZONE2_LEVEL, Vector3(x - 0.5, 2.0, zone2.get_center().y), 64)
-	_fence.visible = not Game.zone2_unlocked()
-	Game.leveled_up.connect(func(_level: int) -> void: _fence.visible = not Game.zone2_unlocked())
+
+func _refresh_fences() -> void:
+	for i in _fences:
+		_fences[i].visible = not Game.zone_unlocked(i)
 
 
 func _plane(rect: Rect2, color: Color, height: float) -> void:
@@ -51,8 +55,30 @@ func _plane(rect: Rect2, color: Color, height: float) -> void:
 	Shapes.add(self, mesh, color, Vector3(center.x, height, center.y))
 
 
-## Swaying grass tufts, drawn in one batch with a MultiMesh. Kept off the camp.
-func _add_grass(zone: Rect2, count: int, color: Color) -> void:
+## Posts and two rails along the west edge of zone i, with the level needed.
+func _add_fence(i: int) -> void:
+	var z: Dictionary = Data.ZONES[i]
+	var rect: Rect2 = z["rect"]
+	var fence := Node3D.new()
+	add_child(fence)
+	_fences[i] = fence
+	var x := rect.position.x
+	var wood := Color(0.5, 0.32, 0.14)
+	var zpos := rect.position.y + 0.5
+	while zpos < rect.end.y:
+		Shapes.add(fence, Shapes.box(Vector3(0.2, 1.2, 0.2)), wood, Vector3(x, 0.6, zpos))
+		zpos += 1.5
+	for h in [0.4, 0.9]:
+		Shapes.add(fence, Shapes.box(Vector3(0.1, 0.12, rect.size.y)), wood.darkened(0.2), Vector3(x, h, rect.get_center().y))
+	var need: String = "Reach level %d to cross" % z["unlock"]["level"]
+	if z["unlock"]["boss"] != "":
+		need += " and defeat the %s" % Data.BOSSES[z["unlock"]["boss"]]["name"]
+	Shapes.label(fence, need, Vector3(x - 0.5, 2.0, rect.get_center().y), 64)
+
+
+## Swaying grass tufts, drawn in one batch with a MultiMesh. Kept off the
+## camp and out of boss lairs.
+func _add_grass(zone: Rect2, count: int, color: Color, seed_offset: int) -> void:
 	var blade := Shapes.cylinder(0.05, 0.4, 0.0)
 	blade.radial_segments = 4
 	var mm := MultiMesh.new()
@@ -61,10 +87,12 @@ func _add_grass(zone: Rect2, count: int, color: Color) -> void:
 	mm.mesh = blade
 	var spots := []
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(zone.position.x) + 11
-	while spots.size() < count:
+	rng.seed = int(zone.position.x) + 11 + seed_offset
+	var guard := 0
+	while spots.size() < count and guard < count * 4:
+		guard += 1
 		var p := Vector2(rng.randf_range(zone.position.x, zone.end.x), rng.randf_range(zone.position.y, zone.end.y))
-		if not camp.grow(0.3).has_point(p) and p.distance_to(Data.BOSS["lair"]) > Data.BOSS["lair_radius"]:
+		if not camp.grow(0.3).has_point(p) and not _in_lair(p):
 			spots.append(p)
 	mm.instance_count = spots.size() * 3
 	var i := 0
@@ -82,6 +110,14 @@ func _add_grass(zone: Rect2, count: int, color: Color) -> void:
 	mmi.material_override = Shapes.sway_material(Color.WHITE, 0.25)
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
+
+
+func _in_lair(p: Vector2) -> bool:
+	for id in Data.BOSSES:
+		var b: Dictionary = Data.BOSSES[id]
+		if p.distance_to(b["lair"]) <= b["lair_radius"]:
+			return true
+	return false
 
 
 func _add_flowers(zone: Rect2, count: int) -> void:
@@ -106,10 +142,10 @@ func _add_flowers(zone: Rect2, count: int) -> void:
 		add_child(mmi)
 
 
-## The Great Boar's lair: a trampled dirt clearing ringed with rocks and bones.
-func _add_lair() -> void:
-	var lair: Vector2 = Data.BOSS["lair"]
-	var r: float = Data.BOSS["lair_radius"]
+## A boss lair: a trampled dirt clearing ringed with rocks and bones.
+func _add_lair(b: Dictionary) -> void:
+	var lair: Vector2 = b["lair"]
+	var r: float = b["lair_radius"]
 	Shapes.add(self, Shapes.cylinder(r, 0.02), Color(0.42, 0.33, 0.24), Vector3(lair.x, 0.015, lair.y))
 	for i in 18:
 		var a := i * TAU / 18.0
@@ -120,4 +156,4 @@ func _add_lair() -> void:
 		var bone := Shapes.add(self, Shapes.capsule(0.06, 0.6), Color(0.92, 0.9, 0.82),
 			Vector3(lair.x + cos(a) * r * 0.6, 0.06, lair.y + sin(a) * r * 0.5))
 		bone.rotation_degrees = Vector3(90, i * 47, 0)
-	Shapes.label(self, Data.BOSS["name"] + "'s lair", Vector3(lair.x, 2.4, lair.y + r + 1.0), 44)
+	Shapes.label(self, b["name"] + "'s lair", Vector3(lair.x, 2.4, lair.y + r + 1.0), 44)

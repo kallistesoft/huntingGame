@@ -1,10 +1,11 @@
 extends Node3D
-## The mountain pass at the far end of the east forest: the way to the next
-## area. Needs Data.NEXT_AREA.level and the Great Boar defeated. In the demo,
-## crossing it ends the demo.
+## A pass between two zones: stone pillars with mountains behind. Shows what
+## the next zone needs (level, boss) and lets the hunter cross once it is
+## open. Crossing into a zone that is not built yet ends the demo.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
 
+var target_zone := 1 # index in Data.ZONES, or ZONES.size() for the zone to come
 var radius := 1.6
 var _label: Label3D
 
@@ -26,9 +27,14 @@ func _ready() -> void:
 
 
 func _refresh() -> void:
-	var blocker := Game.next_area_blocker()
-	_label.text = Data.NEXT_AREA["name"] + ("\nOpen!" if blocker == "" else "\nNeeds level %d + %s" % [Data.NEXT_AREA["level"], Data.BOSS["name"]])
-	_label.modulate = Color(0.6, 1.0, 0.6) if blocker == "" else Color.WHITE
+	var z: Dictionary = Data.zone(target_zone)
+	var u: Dictionary = z["unlock"]
+	var need := "Needs level %d" % u["level"]
+	if u["boss"] != "":
+		need += " + %s" % Data.BOSSES[u["boss"]]["name"]
+	var open := Game.zone_unlocked(target_zone)
+	_label.text = z["entry"]["name"] + ("\nOpen!" if open else "\n" + need)
+	_label.modulate = Color(0.6, 1.0, 0.6) if open else Color.WHITE
 
 
 func is_available() -> bool:
@@ -36,7 +42,7 @@ func is_available() -> bool:
 
 
 func action_label() -> String:
-	return "Take the mountain pass"
+	return "Take the %s" % Data.zone(target_zone)["entry"]["name"].to_lower()
 
 
 func action_icon() -> String:
@@ -44,4 +50,4 @@ func action_icon() -> String:
 
 
 func interact(_player: Node3D) -> void:
-	Game.take_mountain_pass()
+	Game.cross_into(target_zone)

@@ -429,29 +429,38 @@ func _on_changed() -> void:
 func _show_end_screen() -> void:
 	_release_touches()
 	var body: Label = _end_screen.find_child("Body", true, false)
-	body.text = "You crossed the mountain pass at level %d.\nThe Mountains, new animals and a bigger camp are coming in the full game.\nThanks for playing!" % Game.level
+	body.text = "You crossed the %s at level %d.\n%s, new animals and a bigger camp are coming in the full game.\nThanks for playing!" % [Data.NEXT_ZONE["entry"]["name"].to_lower(), Game.level, Data.NEXT_ZONE["name"].capitalize()]
 	_end_screen.visible = true
 	_end_screen.modulate.a = 0.0
 	_end_screen.create_tween().tween_property(_end_screen, "modulate:a", 1.0, 0.6)
 
 
 func _update_boss_bar(smooth: float) -> void:
-	var boss := get_tree().get_first_node_in_group("boss")
-	var show: bool = boss != null and boss.alive and Shapes.flat(boss).distance_to(Shapes.flat(player)) < Data.BOSS["aggro_radius"] + 4.0
+	var boss: Node3D = null
+	for node in get_tree().get_nodes_in_group("boss"):
+		if node.alive and Shapes.flat(node).distance_to(Shapes.flat(player)) < Data.BOSSES[node.kind]["aggro_radius"] + 4.0:
+			boss = node
+	var show := boss != null
 	if show and not _boss_card.visible:
 		_boss_shown = boss.hp
 	_boss_card.visible = show
 	if not show:
 		return
+	var b: Dictionary = Data.BOSSES[boss.kind]
 	_boss_shown = lerpf(_boss_shown, boss.hp, smooth)
-	_boss_bar.max_value = Data.BOSS["hp"]
+	_boss_bar.max_value = b["hp"]
 	_boss_bar.value = _boss_shown
-	_boss_label.text = Data.BOSS["name"] + ("  ·  DIZZY! Strike now" if boss.is_dizzy() else "")
+	_boss_label.text = b["name"] + ("  ·  DIZZY! Strike now" if boss.is_dizzy() else "")
 
 
 func open_station(kind: String) -> void:
 	_release_touches()
 	_panel.open_station(kind)
+
+
+func open_outpost() -> void:
+	_release_touches()
+	_panel.open_outpost()
 
 
 # --- Per-frame refresh -------------------------------------------------------
