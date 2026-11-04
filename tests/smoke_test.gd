@@ -123,15 +123,24 @@ func _test_build_and_craft() -> void:
 
 func _test_hunt() -> void:
 	print("Hunting")
+	# Diagnostics for an intermittent failure here: every toast, and the
+	# state after each swing.
+	var on_msg := func(text: String) -> void: print("  msg  ", text)
+	Game.message.connect(on_msg)
+	print("  info weapon=%s energy=%.1f bag=%.1f/%d" % [Game.weapon(), Game.energy, Game.carry_weight(), Game.carry_limit()])
 	for i in 2:
 		var rabbit := _nearest(func(n: Node) -> bool: return n.get("kind") == "rabbit" and n.is_available() and n.zone.end.x <= Data.ZONES[0]["rect"].end.x)
+		print("  info rabbit %d: %s at %s" % [i, rabbit, Shapes.flat(rabbit) if rabbit != null else Vector2.INF])
 		var guard := 0
 		while rabbit.alive and guard < 10:
 			guard += 1
 			await _act_on(rabbit)
+			var t := player.find_target()
+			print("  info swing %d: target=%s alive=%s hp=%d dist=%.2f energy=%.1f" % [guard, t.get("kind") if t != null else "none", rabbit.alive, rabbit.hp, Shapes.flat(player).distance_to(Shapes.flat(rabbit)), Game.energy])
 	check(Game.inventory.get("raw_meat", 0) >= 2, "2 rabbits gave meat")
 	check(Game.inventory.get("fur", 0) >= 2, "2 rabbits gave fur")
 	check(Game.quest_index == 4, "quest 'Harvest 2 rabbit fur' completed")
+	Game.message.disconnect(on_msg)
 
 
 func _test_energy_sleep_and_ad() -> void:
