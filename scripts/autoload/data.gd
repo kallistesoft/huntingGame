@@ -38,16 +38,26 @@ const ZONE2_LEVEL := 3
 
 # --- Items -------------------------------------------------------------------
 
+## Headings that group items, tools and recipes in the windows, in display order.
+const CATEGORIES := {
+	"weapons": "Weapons",
+	"tools": "Tools",
+	"gear": "Gear",
+	"food": "Food",
+	"materials": "Materials",
+	"animal": "Animal parts",
+}
+
 const ITEMS := {
-	"wood": {"name": "Wood", "weight": 1.0},
-	"stone": {"name": "Stone", "weight": 1.5},
-	"berries": {"name": "Berries", "weight": 0.2, "food": 8.0},
-	"raw_meat": {"name": "Raw meat", "weight": 0.5, "food": 12.0},
-	"cooked_meat": {"name": "Cooked meat", "weight": 0.4, "food": 35.0},
-	"hide": {"name": "Hide", "weight": 0.6},
-	"fur": {"name": "Fur", "weight": 0.3},
-	"antler": {"name": "Antler", "weight": 0.8},
-	"tusk": {"name": "Boar tusk", "weight": 1.0},
+	"wood": {"name": "Wood", "weight": 1.0, "category": "materials"},
+	"stone": {"name": "Stone", "weight": 1.5, "category": "materials"},
+	"berries": {"name": "Berries", "weight": 0.2, "food": 8.0, "category": "food"},
+	"raw_meat": {"name": "Raw meat", "weight": 0.5, "food": 12.0, "category": "food"},
+	"cooked_meat": {"name": "Cooked meat", "weight": 0.4, "food": 35.0, "category": "food"},
+	"hide": {"name": "Hide", "weight": 0.6, "category": "animal"},
+	"fur": {"name": "Fur", "weight": 0.3, "category": "animal"},
+	"antler": {"name": "Antler", "weight": 0.8, "category": "animal"},
+	"tusk": {"name": "Boar tusk", "weight": 1.0, "category": "animal"},
 }
 
 ## Food eaten by the quick "Eat" button, best first.
@@ -55,11 +65,11 @@ const FOOD_ORDER := ["cooked_meat", "raw_meat", "berries"]
 
 ## Tools are owned once, not carried as weight.
 const TOOLS := {
-	"spear": {"name": "Wooden spear", "range": 1.8, "damage": 1},
-	"bow": {"name": "Hunting bow", "range": 5.5, "damage": 2},
-	"stone_axe": {"name": "Stone axe"},
-	"stone_pick": {"name": "Stone pickaxe"},
-	"leather_bag": {"name": "Leather bag", "carry_bonus": 15.0},
+	"spear": {"name": "Wooden spear", "range": 1.8, "damage": 1, "category": "weapons"},
+	"bow": {"name": "Hunting bow", "range": 5.5, "damage": 2, "category": "weapons"},
+	"stone_axe": {"name": "Stone axe", "category": "tools"},
+	"stone_pick": {"name": "Stone pickaxe", "category": "tools"},
+	"leather_bag": {"name": "Leather bag", "carry_bonus": 15.0, "category": "gear"},
 }
 
 # --- Gathering ---------------------------------------------------------------
@@ -199,6 +209,28 @@ func item_name(id: String) -> String:
 
 func item_weight(id: String) -> float:
 	return ITEMS[id]["weight"] if ITEMS.has(id) else 0.0
+
+
+func item_category(id: String) -> String:
+	if ITEMS.has(id):
+		return ITEMS[id]["category"]
+	return TOOLS[id]["category"]
+
+
+func recipe_category(id: String) -> String:
+	var r: Dictionary = RECIPES[id]
+	return item_category(r["tool"] if r.has("tool") else r["item"])
+
+
+## Groups ids by category: [[category, [ids...]], ...] in CATEGORIES order,
+## skipping empty categories. category_of maps an id to its category.
+func by_category(ids: Array, category_of: Callable) -> Array:
+	var groups := []
+	for category in CATEGORIES:
+		var members := ids.filter(func(id: String) -> bool: return category_of.call(id) == category)
+		if not members.is_empty():
+			groups.append([category, members])
+	return groups
 
 
 func recipe_name(id: String) -> String:

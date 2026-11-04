@@ -22,7 +22,7 @@ What the POC covers:
 
 - Game feel: floating "+1 Wood / +2 XP" text, chips and dust bursts, items flying into the Bag button, camera shake and phone vibration on hits, buildings pop with sparks when a tier finishes, level-up banner, smooth bars, press animation on buttons. Animals are animated in code (hop, gallop, idle sniff, fall over on death).
 - Look: procedural sky, glow, light fog, colour adjustment, swaying trees/grass/flowers (shader), animated pond water, grass tufts via MultiMesh.
-- UI: Nunito font (SIL OFL, `assets/fonts/`), rounded cards and pills, vector icons drawn in code (`scripts/ui/icons.gd`), level badge with XP ring, round icon buttons, contextual action button showing the tool icon, bottom-sheet windows that slide up. Palette and theme in `scripts/ui/style.gd`.
+- UI: Nunito font (SIL OFL, `assets/fonts/`), rounded cards and pills, vector icons drawn in code (`scripts/ui/icons.gd`), level badge with XP ring, round icon buttons, contextual action button showing the tool icon, full-screen windows that slide up (UI scale 1.35 via `window/stretch/scale`). Station, bag and shop lists are grouped by item category (`Data.CATEGORIES`) in a two-column grid; the crafting window shows a progress card, recipe cards with icon, effect line, cost chips (green/red with "have N") and the reason a craft is blocked. Palette and theme in `scripts/ui/style.gd`.
 
 Not done yet: real AdMob and billing plugins, release signing / Play Store bundle (.aab), sounds, real 3D models, day/night cycle. Known issue: trees between the camera and the hunter can hide the hunter.
 
