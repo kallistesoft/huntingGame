@@ -86,7 +86,8 @@ func _finish_timers() -> void:
 		if Game.structures[id]["busy_until"] > 0.0:
 			Game.structures[id]["busy_until"] = Game.now() - 1.0
 	for station in Game.craft_jobs:
-		Game.craft_jobs[station]["done_at"] = Game.now() - 1.0
+		for job in Game.craft_jobs[station]:
+			job["done_at"] = Game.now() - 1.0
 	await _frames(2)
 
 
@@ -190,6 +191,35 @@ func _test_batch_pin_and_speed_up() -> void:
 	check(Game.ads_left_today() == ads_before - 1, "speed-up used one daily ad")
 	await _finish_timers()
 	check(Game.storage.get("cooked_meat", 0) >= 5, "batch delivered 5 cooked meat to storage")
+
+	# Craft queue: two jobs per station, chained; a third waits; cancel refunds.
+	Game.craft_jobs = {}
+	Game.storage["raw_meat"] = 10
+	Game.storage["wood"] = 30
+	Game.storage["fibre"] = 9
+	Game.start_craft("cooked_meat", 2)
+	Game.start_craft("rope", 1)
+	var q := Game.craft_queue("crafting")
+	check(q.size() == 2 and q[1]["done_at"] > q[0]["done_at"], "second craft queues behind the first")
+	check(Game.craft_blocker("cooked_meat") == "Queue full", "a third craft waits for a free slot")
+	var fibre_before: int = Game.storage.get("fibre", 0)
+	Game.cancel_craft("crafting", 1)
+	check(Game.craft_queue("crafting").size() == 1 and Game.storage.get("fibre", 0) == fibre_before + 3, "cancelling a waiting job refunds its materials")
+	Game.cancel_craft("crafting", 0)
+	check(Game.craft_queue("crafting").size() == 1, "the running job can't be cancelled")
+	Game.start_craft("rope", 1)
+	var second_end: float = Game.craft_queue("crafting")[1]["done_at"]
+	Game.speed_up("craft:crafting")
+	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
+	check(Game.craft_queue("crafting")[1]["done_at"] < second_end - 1.0, "speed-up moves the waiting job up as well")
+	await _finish_timers()
+	check(Game.craft_queue("crafting").is_empty() and Game.storage.get("rope", 0) >= 1, "the queue drained in order")
+	var station := _nearest(func(n: Node) -> bool: return n.get("kind") == "crafting")
+	Game.start_craft("rope", 1)
+	await _frames(2)
+	check(station._bar.visible and station._bar_label.text.begins_with("Rope"), "progress bar shows over the crafting place")
+	await _finish_timers()
+	check(not station._bar.visible, "progress bar hides when the station is idle")
 
 	Game.toggle_pin("bow")
 	check(Game.pinned_recipe == "bow", "recipe pinned")

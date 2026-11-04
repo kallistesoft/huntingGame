@@ -29,7 +29,7 @@ var inventory := {} # item id -> count, carried
 var storage := {} # item id -> count, at camp
 var tools := {} # tool id -> true
 var structures := {} # id -> {"tier", "busy_until", "next_tier"}
-var craft_jobs := {} # station id -> {"recipe", "count", "done_at"}
+var craft_jobs := {} # station id -> queue of {"recipe", "count", "done_at", "total"}; [0] is running
 var sleep_until := 0.0
 var ad_day := ""
 var ads_today := 0
@@ -610,7 +610,8 @@ func speed_up(target: String) -> void:
 		_roll_ad_day()
 		ads_today += 1
 		if target.begins_with("craft:"):
-			craft_jobs[target.trim_prefix("craft:")]["done_at"] = now() + left / 2.0
+			for job in craft_jobs[target.trim_prefix("craft:")]:
+				job["done_at"] -= left / 2.0 # the queue behind it moves up too
 		else:
 			structures[target]["busy_until"] = now() + left / 2.0
 		notify("Time halved: %d s left." % ceili(left / 2.0))
@@ -718,11 +719,20 @@ func craft_blocker(recipe_id: String) -> String:
 		return "Needs %s tier %d" % [Data.STRUCTURES[r["station"]]["name"].to_lower(), r["tier"]]
 	if r.has("tool") and has_tool(r["tool"]):
 		return "Owned"
-	if craft_jobs.has(r["station"]):
-		return "Busy"
+	if craft_queue(r["station"]).size() >= queue_slots():
+		return "Queue full"
 	if not can_afford(r["cost"]):
 		return "Missing materials"
 	return ""
+
+
+func queue_slots() -> int:
+	return Data.QUEUE_SLOTS
+
+
+## The jobs lined up at a station, running one first ([] when idle).
+func craft_queue(station: String) -> Array:
+	return craft_jobs.get(station, [])
 
 
 ## Craft time multiplier of a station at its current tier (tier 2 rack: 0.5).
@@ -733,8 +743,30 @@ func station_speed(station: String) -> float:
 	return Data.STRUCTURES[station]["tiers"][tier - 1].get("speed", 1.0)
 
 
+## The job running at a station, or {}.
 func craft_job_at(station: String) -> Dictionary:
-	return craft_jobs.get(station, {})
+	var q := craft_queue(station)
+	return q[0] if not q.is_empty() else {}
+
+
+## Drops a waiting job (never the running one) and gives its materials back.
+func cancel_craft(station: String, index: int) -> void:
+	var q := craft_queue(station)
+	if index <= 0 or index >= q.size():
+		return
+	var job: Dictionary = q[index]
+	var r: Dictionary = Data.RECIPES[job["recipe"]]
+	for id in r["cost"]:
+		if Data.TOOLS.has(id):
+			tools[id] = true
+		else:
+			_add(storage, id, r["cost"][id] * job["count"])
+	for i in range(index + 1, q.size()):
+		q[i]["done_at"] -= job["total"]
+	q.remove_at(index)
+	notify("%s taken out of the queue; materials are back in storage." % Data.recipe_name(job["recipe"]))
+	changed.emit()
+	save_game()
 
 
 ## How many of a recipe the materials allow (1 for tools, which are made once).
@@ -757,7 +789,12 @@ func start_craft(recipe_id: String, count := 1) -> void:
 	for id in r["cost"]:
 		cost[id] = r["cost"][id] * count
 	_pay(cost)
-	craft_jobs[r["station"]] = {"recipe": recipe_id, "count": count, "done_at": now() + r["time"] * count * station_speed(r["station"])}
+	var station: String = r["station"]
+	var total: float = r["time"] * count * station_speed(station)
+	var q := craft_queue(station)
+	var start: float = q[-1]["done_at"] if not q.is_empty() else now() # chained behind the queue
+	q.append({"recipe": recipe_id, "count": count, "done_at": start + total, "total": total})
+	craft_jobs[station] = q
 	changed.emit()
 	save_game()
 
@@ -791,9 +828,14 @@ func mark_recipes_seen(station := "") -> void:
 
 
 func craft_left(station: String) -> float:
-	if not craft_jobs.has(station):
-		return 0.0
-	return maxf(0.0, craft_jobs[station]["done_at"] - now())
+	var job := craft_job_at(station)
+	return maxf(0.0, job["done_at"] - now()) if not job.is_empty() else 0.0
+
+
+## Full duration of the job running at a station (for progress bars).
+func craft_total(station: String) -> float:
+	var job := craft_job_at(station)
+	return job["total"] if not job.is_empty() else 1.0
 
 
 func _update_timers(t: float) -> void:
@@ -815,24 +857,27 @@ func _update_timers(t: float) -> void:
 			changed.emit()
 
 	for station in craft_jobs.keys():
-		var job: Dictionary = craft_jobs[station]
-		if t < job["done_at"]:
-			continue
-		var recipe_id: String = job["recipe"]
-		var count: int = job.get("count", 1)
-		var r: Dictionary = Data.RECIPES[recipe_id]
-		craft_jobs.erase(station)
-		if r.has("tool"):
-			tools[r["tool"]] = true
-			if pinned_recipe == recipe_id:
-				pinned_recipe = ""
-		else:
-			_add(storage, r["item"], r["count"] * count)
-		notify("Crafted: %s%s%s" % [Data.recipe_name(recipe_id), " ×%d" % count if count > 1 else "", "" if r.has("tool") else " (in storage)"])
-		gain_xp(Data.CRAFT_XP * count)
-		quest_event("craft", recipe_id, count)
-		changed.emit()
-		crafted.emit(recipe_id)
+		while not craft_jobs[station].is_empty() and t >= craft_jobs[station][0]["done_at"]:
+			_finish_craft(craft_jobs[station].pop_front())
+		if craft_jobs[station].is_empty():
+			craft_jobs.erase(station)
+
+
+func _finish_craft(job: Dictionary) -> void:
+	var recipe_id: String = job["recipe"]
+	var count: int = job.get("count", 1)
+	var r: Dictionary = Data.RECIPES[recipe_id]
+	if r.has("tool"):
+		tools[r["tool"]] = true
+		if pinned_recipe == recipe_id:
+			pinned_recipe = ""
+	else:
+		_add(storage, r["item"], r["count"] * count)
+	notify("Crafted: %s%s%s" % [Data.recipe_name(recipe_id), " ×%d" % count if count > 1 else "", "" if r.has("tool") else " (in storage)"])
+	gain_xp(Data.CRAFT_XP * count)
+	quest_event("craft", recipe_id, count)
+	changed.emit()
+	crafted.emit(recipe_id)
 
 
 # --- XP and quests -----------------------------------------------------------
@@ -984,9 +1029,18 @@ func load_game() -> void:
 	if data.has("craft_job") and not data["craft_job"].is_empty():
 		saved_jobs["crafting"] = data["craft_job"] # save from before jobs were per station
 	for station in saved_jobs:
-		var job: Dictionary = saved_jobs[station]
-		if Data.STRUCTURES.has(station) and job.has("recipe") and Data.RECIPES.has(job["recipe"]):
-			craft_jobs[station] = {"recipe": job["recipe"], "count": int(job.get("count", 1)), "done_at": float(job.get("done_at", 0.0))}
+		if not Data.STRUCTURES.has(station):
+			continue
+		var entries: Array = saved_jobs[station] if saved_jobs[station] is Array else [saved_jobs[station]] # one job per station before the queue
+		var q := []
+		for job in entries:
+			if job is Dictionary and job.has("recipe") and Data.RECIPES.has(job["recipe"]):
+				var r: Dictionary = Data.RECIPES[job["recipe"]]
+				var count := int(job.get("count", 1))
+				q.append({"recipe": job["recipe"], "count": count, "done_at": float(job.get("done_at", 0.0)),
+					"total": float(job.get("total", r["time"] * count * station_speed(station)))})
+		if not q.is_empty():
+			craft_jobs[station] = q
 	sleep_until = float(data.get("sleep_until", 0.0))
 	ad_day = str(data.get("ad_day", ""))
 	ads_today = int(data.get("ads_today", 0))
@@ -1071,7 +1125,8 @@ func dev_finish_timers() -> void:
 		if structure_busy(id):
 			structures[id]["busy_until"] = now() - 1.0
 	for station in craft_jobs:
-		craft_jobs[station]["done_at"] = now() - 1.0
+		for job in craft_jobs[station]:
+			job["done_at"] = now() - 1.0
 	sleep_until = minf(sleep_until, now() - 1.0) if sleep_until > 0.0 else 0.0
 	_update_timers(now())
 	changed.emit()
