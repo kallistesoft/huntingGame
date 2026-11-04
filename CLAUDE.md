@@ -44,7 +44,7 @@ Not done yet: real AdMob and billing plugins, release signing / Play Store bundl
 ### Running
 
 - Play: open the folder in Godot 4.7 and press F5.
-- Smoke test (headless): `godot --headless --path . res://tests/smoke_test.tscn` prints `SMOKE TEST: PASS` and exits with the number of failures. Run it after every change. (The hunting step used to flake when a tree or grass tuft stood next to the rabbit; `_act_on` now tries several sides of its target.)
+- Smoke test (headless): `godot --headless --path . res://tests/smoke_test.tscn` prints `SMOKE TEST: PASS` and exits with the number of failures. Run it after every change; GitHub Actions runs it on every PR to `main` (`.github/workflows/smoke-test.yml`, Godot 4.7.2 Linux, headless). (The hunting step used to flake when a tree or grass tuft stood next to the rabbit; `_act_on` now tries several sides of its target.)
 - Android APK: `export_presets.cfg` has an **Android** preset (package `com.kallistesoft.huntinggame`, arm64, version 0.1.0, vibrate permission, no Gradle build). In the editor: Project → Export → Android → Export Project. Headless: `godot --headless --path . --export-debug "Android" build/HuntingGame.apk` (needs Godot 4.7.1 Android export templates, an Android SDK with build-tools, a JDK, and a debug keystore set in Editor Settings → Export → Android). `build/` is git-ignored. The current APK is a **debug** build signed with a throwaway debug key: fine for sideloading, not for Google Play.
 
 ## Engine decision
