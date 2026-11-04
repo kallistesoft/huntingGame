@@ -42,8 +42,9 @@ func action_label() -> String:
 	match kind:
 		"pond": return "Drink"
 		"tree": return "Chop"
-		"rock": return "Mine"
+		"rock", "iron_rock": return "Mine"
 		"grass": return "Cut grass"
+		"herb": return "Pick herbs"
 		_: return "Pick berries"
 
 
@@ -51,8 +52,9 @@ func action_icon() -> String:
 	match kind:
 		"pond": return "water"
 		"tree": return "axe"
-		"rock": return "pick"
+		"rock", "iron_rock": return "pick"
 		"grass": return "grass"
+		"herb": return "herb"
 		_: return "berries"
 
 
@@ -103,6 +105,23 @@ func _build_shape() -> void:
 			Shapes.add(_full, Shapes.sphere(0.5), grey, Vector3(0, 0.25, 0), Vector3(1.2, 0.8, 1.0))
 			Shapes.add(_full, Shapes.sphere(0.3), grey.lightened(0.15), Vector3(0.35, 0.2, 0.2))
 			Shapes.add(_empty, Shapes.sphere(0.18), grey, Vector3(0, 0.1, 0), Vector3(1, 0.6, 1))
+		"iron_rock":
+			var grey := Color(0.42, 0.4, 0.42)
+			Shapes.add(_full, Shapes.sphere(0.55), grey, Vector3(0, 0.28, 0), Vector3(1.25, 0.85, 1.05))
+			Shapes.add(_full, Shapes.sphere(0.28), grey.lightened(0.1), Vector3(-0.4, 0.2, 0.25))
+			for v in [Vector3(0.2, 0.45, 0.35), Vector3(-0.15, 0.55, -0.3), Vector3(0.45, 0.25, -0.1)]:
+				Shapes.add(_full, Shapes.sphere(0.12), Color(0.75, 0.45, 0.28), v, Vector3(1.4, 0.6, 1.0)) # rusty veins
+			Shapes.add(_empty, Shapes.sphere(0.2), grey, Vector3(0, 0.1, 0), Vector3(1, 0.6, 1))
+		"herb":
+			var leaf := Color(0.35, 0.62, 0.35)
+			for i in 5:
+				var a := i * TAU / 5.0
+				var l := Shapes.add(_full, Shapes.sphere(0.14), Color.WHITE, Vector3(cos(a) * 0.2, 0.22, sin(a) * 0.2), Vector3(1.0, 0.4, 1.6))
+				l.material_override = Shapes.sway_material(leaf, 0.08)
+				l.rotation.y = -a
+			for q in [Vector3(0.08, 0.45, 0.05), Vector3(-0.1, 0.5, -0.06), Vector3(0.0, 0.55, 0.1)]:
+				Shapes.add(_full, Shapes.sphere(0.06), Color(0.98, 0.98, 0.9), q)
+			Shapes.add(_empty, Shapes.sphere(0.14), leaf.darkened(0.3), Vector3(0, 0.08, 0), Vector3(1, 0.5, 1))
 		"grass":
 			var blade := Color(0.55, 0.68, 0.3)
 			for i in 7:

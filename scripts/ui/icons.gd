@@ -5,7 +5,7 @@ extends RefCounted
 const NAMES := [
 	"health", "energy", "food", "water", "bag", "xp", "sleep", "shop", "menu", "close",
 	"axe", "pick", "berries", "spear", "bow", "door", "build", "quest", "check", "pin",
-	"rope", "leather", "hood", "tunic", "boots", "grass", "hunter", "bone",
+	"rope", "leather", "hood", "tunic", "boots", "grass", "hunter", "bone", "ingot", "herb",
 ]
 
 
@@ -120,6 +120,14 @@ static func draw(ci: CanvasItem, icon: String, c: Vector2, s: float, color: Colo
 			for e in [Vector2(-0.5, 0.5), Vector2(0.5, -0.5)]:
 				ci.draw_circle(p.call(e.x - 0.18, e.y - 0.18), w * 0.9, color)
 				ci.draw_circle(p.call(e.x + 0.18, e.y + 0.18), w * 0.9, color)
+		"ingot":
+			ci.draw_colored_polygon(PackedVector2Array([p.call(-0.6, -0.35), p.call(0.6, -0.35), p.call(0.9, 0.45), p.call(-0.9, 0.45)]), color)
+			ci.draw_line(p.call(-0.55, -0.1), p.call(0.55, -0.1), color.lightened(0.4), w * 0.6)
+		"herb":
+			ci.draw_line(p.call(0, 0.95), p.call(0, -0.6), color, w)
+			for y in [0.4, 0.0, -0.4]:
+				for x in [-1, 1]:
+					ci.draw_colored_polygon(PackedVector2Array([p.call(0, y), p.call(x * 0.55, y - 0.35), p.call(x * 0.2, y - 0.6)]), color)
 		"pin":
 			# Push pin: round head, a flat collar, and the needle pointing down-left.
 			ci.draw_circle(p.call(0.25, -0.45), h * 0.42, color)

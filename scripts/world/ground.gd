@@ -30,6 +30,8 @@ func _ready() -> void:
 			_add_lair(Data.BOSSES[z["boss"]])
 		if z["entry"].get("kind", "") == "fence":
 			_add_fence(i)
+		elif z["entry"].get("kind", "") == "pass":
+			_add_boulder_wall(rect, z["entry"]["position"])
 
 	_plane(camp, Color(0.62, 0.52, 0.36), 0.01)
 	var camp_label := Shapes.label(self, "CAMP", Vector3(camp.position.x + 1.2, 0.05, camp.end.y - 0.6), 96)
@@ -74,6 +76,25 @@ func _add_fence(i: int) -> void:
 	if z["unlock"]["boss"] != "":
 		need += " and defeat the %s" % Data.BOSSES[z["unlock"]["boss"]]["name"]
 	Shapes.label(fence, need, Vector3(x - 0.5, 2.0, rect.get_center().y), 64)
+
+
+## Boulders along the west edge of a mountain zone, with a gap at its pass.
+func _add_boulder_wall(rect: Rect2, gate: Vector2) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(rect.position.x) * 3
+	var zpos := rect.position.y + 0.6
+	while zpos < rect.end.y:
+		if absf(zpos - gate.y) > 2.6:
+			var r := rng.randf_range(0.9, 1.5)
+			Shapes.add(self, Shapes.sphere(r), Color(0.47, 0.48, 0.52), Vector3(rect.position.x + rng.randf_range(-0.3, 0.3), r * 0.45, zpos), Vector3(1.0, 0.75, 1.1))
+		zpos += 1.9
+	# Snowy peaks beyond the zone's north and south edges, outside the walkable area.
+	for i in 7:
+		var x := rect.position.x + 2.0 + i * (rect.size.x - 4.0) / 6.0
+		for zz in [rect.position.y - 9.0, rect.end.y + 9.0]:
+			var r := 2.4 + (i % 2) * 0.6
+			var peak := Shapes.add(self, Shapes.cylinder(r, 6.0 + (i % 3) * 1.5, 0.0), Color(0.45, 0.47, 0.52), Vector3(x, 3.0 + (i % 3) * 0.75, zz))
+			Shapes.add(peak, Shapes.cylinder(r * 0.3, 1.4, 0.0), Color(0.95, 0.96, 1.0), Vector3(0, 2.3 + (i % 3) * 0.75, 0))
 
 
 ## Swaying grass tufts, drawn in one batch with a MultiMesh. Kept off the

@@ -16,7 +16,8 @@ func _ready() -> void:
 	for x in [-1, 1]:
 		Shapes.add(self, Shapes.box(Vector3(0.9, 3.4, 0.9)), stone, Vector3(x * 1.6, 1.7, 0))
 	Shapes.add(self, Shapes.box(Vector3(4.2, 0.8, 1.0)), stone.darkened(0.15), Vector3(0, 3.6, 0))
-	for i in 5: # mountains behind the pass
+	# Mountains behind the pass, only when nothing is built beyond it yet.
+	for i in (5 if target_zone >= Data.ZONES.size() else 0):
 		var peak := Shapes.add(self, Shapes.cylinder(2.2 + i % 2, 5.0 + (i % 3) * 1.5, 0.0), Color(0.45, 0.47, 0.52),
 			Vector3(-5.0 + i * 2.5, 2.5 + (i % 3) * 0.75, -3.0 - (i % 2) * 1.5))
 		Shapes.add(peak, Shapes.cylinder(0.75, 1.2, 0.0), Color(0.95, 0.96, 1.0), Vector3(0, 2.0 + (i % 3) * 0.75, 0))

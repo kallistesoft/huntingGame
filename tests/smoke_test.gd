@@ -29,6 +29,7 @@ func _ready() -> void:
 	await _test_levels_and_zone()
 	await _test_death()
 	await _test_boss_and_pass()
+	await _test_zone3()
 	await _test_gear_chain()
 	_test_save_load()
 
@@ -306,10 +307,10 @@ func _test_death() -> void:
 func _test_boss_and_pass() -> void:
 	print("Boss and mountain pass")
 	var boss: Node3D = world.boss_node("boar")
-	var next_zone := Data.ZONES.size()
-	Game.cross_into(next_zone)
-	check(not Game.demo_done, "mountain pass closed before the boss")
-	check("Great Boar" in Game.zone_blocker(next_zone), "gate blocker names the boss")
+	var mountains := 2
+	Game.cross_into(mountains)
+	check(not Game.visited_zones.has("mountains"), "mountain pass closed before the boss")
+	check("Great Boar" in Game.zone_blocker(mountains), "gate blocker names the boss")
 
 	# A charge that connects hurts and pushes the hunter back.
 	Game.health = Data.MAX_HEALTH
@@ -335,13 +336,81 @@ func _test_boss_and_pass() -> void:
 	check(Game.bosses_defeated.has("boar"), "Great Boar defeated")
 	check(Game.inventory.get("tusk", 0) == Data.BOSSES["boar"]["drops"]["tusk"], "boar dropped tusks")
 
-	while Game.level < Data.NEXT_ZONE["unlock"]["level"]:
-		Game.gain_xp(100)
-	Game.cross_into(next_zone)
-	check(Game.demo_done, "mountain pass ends the demo")
+	check(not Game.zone_unlocked(mountains), "mountains still need level %d" % Data.ZONES[mountains]["unlock"]["level"])
+	Game.dev_set_level(Data.ZONES[mountains]["unlock"]["level"])
+	check(Game.zone_unlocked(mountains), "level + boar open the mountains")
+	Game.cross_into(mountains)
+	check(Game.visited_zones.has("mountains") and not Game.demo_done, "crossing the pass enters the mountains, demo goes on")
+	check(world.walk_bounds().end.x > Data.ZONES[1]["rect"].end.x, "mountains are walkable")
+
+
+func _test_zone3() -> void:
+	print("Zone 3: iron, wolves, the Great Bear, the northern pass")
+	Game.inventory = {}
+	Game.energy = 100.0
+	Game.tools = {"spear": true, "bow": true, "stone_pick": true}
+	var ore := _nearest(func(n: Node) -> bool: return n.get("kind") == "iron_rock" and n.is_available())
+	check(ore != null, "iron rocks in the mountains")
+	check(Game.gather("iron_rock", 4) == 0, "stone pickaxe can't mine iron")
+	Game.tools["bone_pick"] = true
+	check(Game.gather("iron_rock", 4) == 3, "bone pickaxe mines 3 ore per hit")
+	Game.inventory["herbs"] = 1
+	Game.health = 50.0
+	Game.hunger = 100.0
+	Game.eat("herbs")
+	check(Game.health >= 79.0 and Game.inventory.get("herbs", 0) == 0, "herbs heal even when not hungry")
+
+	var wolf := _nearest(func(n: Node) -> bool: return n.get("kind") == "wolf" and n.is_available())
+	check(wolf != null, "wolves roam the mountains")
+	Game.health = Game.max_health()
+	Game.protected_until = 0.0
+	player.position = wolf.position + Vector3(0.5, 0, 0)
+	await get_tree().create_timer(2.2).timeout
+	check(Game.health < Game.max_health() - 5.0, "a wolf bites the hunter")
+	player.position = Vector3(90, 0, 16)
+	await _frames(2)
+
+	var bear: Node3D = world.boss_node("bear")
+	check(bear != null and bear.alive, "the Great Bear waits in its lair")
+	Game.health = Game.max_health()
+	var guard := 0
+	while bear.alive and guard < 400:
+		guard += 1
+		Game.energy = 100.0
+		Game.health = Game.max_health()
+		player.position = bear.position + Vector3(3.0, 0, 0)
+		player._cooldown = 0.0
+		player.do_action()
+		await _frames(3)
+	check(Game.bosses_defeated.has("bear"), "Great Bear defeated")
+	check(Game.inventory.get("bear_pelt", 0) == Data.BOSSES["bear"]["drops"]["bear_pelt"], "bear dropped pelts")
+
+	Game.dev_set_tier("house", 2)
+	Game.dev_set_tier("crafting", 3)
+	Game.dev_set_tier("forge", 1)
+	Game.storage = {"iron_ore": 10, "wood": 10, "bone": 5, "rope": 5}
+	Game.craft_jobs = {}
+	Game.start_craft("iron_bar", 2)
+	check(Game.craft_jobs.has("forge"), "forge smelts iron bars")
+	await _finish_timers()
+	check(Game.storage.get("iron_bar", 0) == 2, "2 iron bars in storage")
+	Game.tools["bone_axe"] = true
+	Game.start_craft("iron_axe")
+	await _finish_timers()
+	check(Game.has_tool("iron_axe") and not Game.has_tool("bone_axe") and Game.gather("tree", 6) == 4, "iron axe replaced the bone axe: 4 wood per hit")
+
+	var north := Data.ZONES.size()
+	Game.cross_into(north)
+	check(not Game.demo_done, "northern pass closed below level %d" % Data.NEXT_ZONE["unlock"]["level"])
+	Game.dev_set_level(Data.NEXT_ZONE["unlock"]["level"])
+	Game.cross_into(north)
+	check(Game.demo_done, "northern pass ends the demo")
 	await _frames(2)
 	check(world.hud._end_screen.visible, "end of demo screen shown")
 	world.hud._end_screen.visible = false
+	Game.tools.erase("iron_axe")
+	Game.tools.erase("bone_pick")
+	Game.inventory = {}
 
 
 func _test_gear_chain() -> void:

@@ -19,6 +19,7 @@ var _spear: Node3D
 var _bow: Node3D
 var _zzz: Label3D
 var _knock := Vector2.ZERO
+var _zone := -1 # zone index the hunter stands in, to notice crossings
 
 
 func _ready() -> void:
@@ -49,6 +50,11 @@ func _process(delta: float) -> void:
 	var next := (Shapes.flat(self) + velocity * delta).clamp(bounds.position, bounds.end)
 	position = Vector3(next.x, 0, next.y)
 	Game.player_position = next
+	var zone := Game.zone_at(next)
+	if zone != _zone:
+		_zone = zone
+		if zone > 0:
+			Game.on_enter_zone(zone)
 
 	_model.rotation_degrees.x = -90.0 if sleeping or down else 0.0
 	_model.position.y = 0.3 if sleeping or down else absf(sin(Time.get_ticks_msec() * 0.012)) * 0.08 * dir.length()

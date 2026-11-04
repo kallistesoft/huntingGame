@@ -24,7 +24,9 @@ const ITEM_COLORS := {
 	"wood": Color("a0703f"), "stone": Color("b9bcc2"), "berries": Color("e23d5a"),
 	"raw_meat": Color("e0726b"), "cooked_meat": Color("b4683a"), "hide": Color("c8a17a"),
 	"fur": Color("d98b4a"), "antler": Color("efe6cf"), "tusk": Color("f3eedc"), "bone": Color("ece6d2"),
-	"fibre": Color("b5bf6a"), "rope": Color("d8b36a"), "leather": Color("a0703f"),
+	"fibre": Color("b5bf6a"), "rope": Color("d8b36a"), "leather": Color("a0703f"), "thick_leather": Color("7a4e28"),
+	"iron_ore": Color("b07a58"), "iron_bar": Color("9fb4c7"), "herbs": Color("7cc46b"), "horn": Color("d9cfb8"),
+	"wolf_pelt": Color("8e8e99"), "bear_pelt": Color("4e3524"), "claw": Color("e8e0cc"),
 }
 
 static var _font: FontFile

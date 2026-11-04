@@ -39,6 +39,7 @@ var bosses_defeated := [] # boss ids (Data.BOSSES) the hunter has beaten
 var demo_done := false
 var player_position := Vector2.ZERO
 var has_player_position := false
+var visited_zones := [] # zone ids the hunter has set foot in
 var pinned_recipe := "" # recipe followed on the HUD, or ""
 var seen_recipes := [] # recipe ids the player has seen unlocked (for the NEW badge)
 
@@ -132,6 +133,12 @@ func equipped(slot: String) -> String:
 			best = id
 			best_rank = rank
 	return best
+
+
+## Tier of the piece equipped in a slot (0 when empty).
+func gear_tier(slot: String) -> int:
+	var id := equipped(slot)
+	return Data.TOOLS[id].get("tier", 0) if id != "" else 0
 
 
 ## A stat of the piece equipped in a slot, or the default when the slot is empty.
@@ -233,16 +240,35 @@ func cross_into(i: int) -> void:
 	if blocker != "":
 		notify(blocker)
 		return
-	var z: Dictionary = Data.zone(i)
-	quest_event("travel", z["id"], 1)
 	if i >= Data.ZONES.size():
+		quest_event("travel", Data.zone(i)["id"], 1)
 		demo_done = true
 		changed.emit()
 		save_game()
 		demo_finished.emit()
 		return
+	on_enter_zone(i)
+
+
+## The hunter set foot in zone i (through a gate or across an open border).
+## The first visit counts for "travel" quests.
+func on_enter_zone(i: int) -> void:
+	var z: Dictionary = Data.ZONES[i]
+	if visited_zones.has(z["id"]):
+		return
+	visited_zones.append(z["id"])
 	notify("You enter %s." % z["name"])
+	quest_event("travel", z["id"], 1)
 	changed.emit()
+	save_game()
+
+
+## Index of the zone a ground position is in (-1 outside every zone).
+func zone_at(pos: Vector2) -> int:
+	for i in Data.ZONES.size():
+		if Data.ZONES[i]["rect"].has_point(pos):
+			return i
+	return -1
 
 
 ## Returns [xp into this level, xp needed for this level]; needed is 0 at max level.
@@ -405,6 +431,9 @@ func gather(kind: String, remaining: int) -> int:
 	if not _can_act():
 		return 0
 	var item: String = r["item"]
+	if r.has("needs_tier") and gear_tier(r["slot"]) < r["needs_tier"]:
+		notify("Too hard for your tools: you need a %s or better." % Data.tool_of_tier(r["slot"], r["needs_tier"]).to_lower())
+		return 0
 	var amount := int(gear_stat(r["slot"], "yield", 1.0)) if r["slot"] != "" else 1
 	amount = mini(amount, remaining)
 	amount = add_to_bag(item, amount)
@@ -431,6 +460,12 @@ func try_attack() -> bool:
 
 
 ## The Great Boar's charge connected.
+## An aggressive animal (wolf) got its teeth in.
+func on_animal_bite(kind: String) -> void:
+	var a: Dictionary = Data.ANIMALS[kind]
+	damage(a["bite"], a["bite_text"])
+
+
 func on_boss_hit_player(kind: String) -> void:
 	var b: Dictionary = Data.BOSSES[kind]
 	damage(b["hit_damage"], b["hit_text"])
@@ -494,12 +529,18 @@ func drink() -> void:
 func eat(id: String) -> void:
 	if inventory.get(id, 0) <= 0:
 		return
-	if hunger >= 99.0:
+	var item: Dictionary = Data.ITEMS[id]
+	var heals: bool = item.has("heal") and health < max_health()
+	if hunger >= 99.0 and not heals:
 		notify("You are not hungry.")
 		return
 	_remove(inventory, id, 1)
-	hunger = minf(100.0, hunger + Data.ITEMS[id]["food"])
-	notify("You eat %s." % Data.item_name(id).to_lower())
+	hunger = minf(100.0, hunger + item["food"])
+	if item.has("heal"):
+		health = minf(max_health(), health + item["heal"])
+		notify("You eat %s: +%d health." % [Data.item_name(id).to_lower(), item["heal"]])
+	else:
+		notify("You eat %s." % Data.item_name(id).to_lower())
 	changed.emit()
 
 
@@ -879,6 +920,7 @@ func _reset_state() -> void:
 	has_player_position = false
 	pinned_recipe = ""
 	seen_recipes = []
+	visited_zones = [Data.ZONES[0]["id"]]
 
 
 func save_game() -> void:
@@ -894,7 +936,7 @@ func save_game() -> void:
 		"xp_boost_until": xp_boost_until,
 		"bosses_defeated": bosses_defeated, "demo_done": demo_done,
 		"player_position": [player_position.x, player_position.y],
-		"pinned_recipe": pinned_recipe, "seen_recipes": seen_recipes,
+		"pinned_recipe": pinned_recipe, "seen_recipes": seen_recipes, "visited_zones": visited_zones,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -956,6 +998,12 @@ func load_game() -> void:
 	if pos.size() == 2:
 		player_position = Vector2(pos[0], pos[1])
 		has_player_position = true
+	visited_zones = [Data.ZONES[0]["id"]]
+	for id in data.get("visited_zones", []):
+		if not visited_zones.has(id):
+			visited_zones.append(id)
+	if not data.has("visited_zones") and level >= Data.ZONES[1]["unlock"]["level"]:
+		visited_zones.append(Data.ZONES[1]["id"]) # older save: the forest was already open
 	pinned_recipe = str(data.get("pinned_recipe", ""))
 	if not Data.RECIPES.has(pinned_recipe):
 		pinned_recipe = ""

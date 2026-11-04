@@ -9,6 +9,8 @@ const ITEM_LOOKS := {
 	"cooked_meat": ["food", Color("f08a4b")],
 	"rope": ["rope", Color("d8b36a")],
 	"leather": ["leather", Color("a0703f")],
+	"thick_leather": ["leather", Color("7a4e28")],
+	"iron_bar": ["ingot", Color("9fb4c7")],
 }
 const TIER_COLORS := [Color("c9ccd2"), Color("c8a17a"), Color("efe6cf"), Color("9fb4c7")]
 
@@ -528,7 +530,7 @@ func _build_dev_menu() -> void:
 			buttons.append(["T%d" % t, Game.structure_tier(kind) != t, Game.dev_set_tier.bind(kind, t)])
 		_row("%s: tier %d" % [Data.STRUCTURES[kind]["name"], Game.structure_tier(kind)], buttons)
 	var levels := []
-	for l in [1, 3, 5, Data.LEVEL_XP.size()]:
+	for l in [1, 3, 5, 8, 13, Data.LEVEL_XP.size()]:
 		levels.append(["Lv %d" % l, Game.level != l, Game.dev_set_level.bind(l)])
 	_row("Level %d" % Game.level, levels)
 	_row("Finish every running timer now.", [["Finish", true, Game.dev_finish_timers]])

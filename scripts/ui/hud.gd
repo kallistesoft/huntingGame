@@ -67,7 +67,7 @@ func _ready() -> void:
 
 	_messages = VBoxContainer.new()
 	_messages.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	_messages.position.y = 100
+	_messages.position.y = 176 # below the boss bar
 	_messages.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_messages.alignment = BoxContainer.ALIGNMENT_BEGIN
 	_messages.add_theme_constant_override("separation", 6)

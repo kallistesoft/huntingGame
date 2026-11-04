@@ -29,6 +29,7 @@ var _phase := 0.0 # gait cycle
 var _time := 0.0
 var _sniff_at := 0.0 # time of the next sniff while idle
 var _dying := false
+var _bite_cd := 0.0 # aggressive animals: time until the next bite
 
 # Animated parts (pivots). Legs only exist on deer, ears on rabbits, tail on rabbits/squirrels.
 var _body: Node3D
@@ -64,7 +65,19 @@ func _process(delta: float) -> void:
 	var away := here - Shapes.flat(player)
 	var step := Vector2.ZERO
 
-	if _resting > 0.0:
+	var hunting: bool = d.get("aggressive", false) and away.length() < d["flee_radius"] \
+		and not Game.is_dead() and not Game.is_sleeping()
+	if hunting:
+		# Close in, then bite every few seconds while in reach.
+		_bite_cd -= delta
+		if away.length() > d["size"] * 2.0 + 0.8:
+			step = -away.normalized() * d["flee_speed"] * delta
+		elif _bite_cd <= 0.0:
+			_bite_cd = d["bite_every"]
+			Game.on_animal_bite(kind)
+			world.shake(0.2)
+			world.vibrate(60)
+	elif _resting > 0.0:
 		_resting -= delta
 	elif away.length() < d["flee_radius"]:
 		_fleeing_for += delta
@@ -96,7 +109,7 @@ func _animate(delta: float, speed: float) -> void:
 	var moving := speed > 0.02
 	var running := speed > 0.5
 
-	if kind == "deer":
+	if not _legs.is_empty():
 		_phase += delta * (13.0 if running else 6.0) * float(moving)
 		var swing := (0.75 if running else 0.4) * sin(_phase) * float(moving)
 		# Diagonal pairs move together: front-left with back-right.
@@ -154,6 +167,7 @@ func interact(_player: Node3D) -> void:
 	if hp > 0:
 		Game.notify("Hit! The %s is hurt." % Data.ANIMALS[kind]["name"].to_lower())
 		_resting = 0.0
+		_bite_cd = minf(_bite_cd, 0.4) # a hurt wolf snaps back fast
 		return
 	alive = false
 	_respawn_at = Game.now() + Data.ANIMALS[kind]["respawn"]
@@ -214,10 +228,11 @@ func _mesh(parent: Node3D, mesh: Mesh, color: Color, pos := Vector3.ZERO, scale 
 
 ## Built facing +Z, so rotation.y = atan2(x, z) points it along its motion.
 func _build_shape() -> void:
-	var s: float = Data.ANIMALS[kind]["size"]
-	var c: Color = Data.ANIMALS[kind]["color"]
+	var d: Dictionary = Data.ANIMALS[kind]
+	var s: float = d["size"]
+	var c: Color = d["color"]
 	_body = _pivot(self, Vector3.ZERO)
-	if kind == "deer":
+	if d.get("legs", false):
 		_torso = _pivot(_body, Vector3(0, s * 1.6, 0))
 		_mesh(_torso, Shapes.capsule(s * 0.6, s * 2.6), c).rotation_degrees.x = 90
 		for side in [[-1, 1], [1, 1], [-1, -1], [1, -1]]: # FL, FR, BL, BR
@@ -230,10 +245,22 @@ func _build_shape() -> void:
 		_mesh(_head, Shapes.sphere(s * 0.38), c, Vector3(0, 0, s * 0.15), Vector3(1, 1, 1.4))
 		_mesh(_head, Shapes.sphere(s * 0.08), Color(0.1, 0.08, 0.06), Vector3(0, -s * 0.05, s * 0.65))
 		for x in [-1, 1]:
-			var antler := _mesh(_head, Shapes.cylinder(s * 0.05, s * 1.0, s * 0.02), Color(0.85, 0.8, 0.65), Vector3(x * s * 0.25, s * 0.55, -s * 0.05))
-			antler.rotation_degrees.z = -x * 25
-			var tine := _mesh(_head, Shapes.cylinder(s * 0.04, s * 0.45, s * 0.02), Color(0.85, 0.8, 0.65), Vector3(x * s * 0.42, s * 0.65, s * 0.15))
-			tine.rotation_degrees = Vector3(35, 0, -x * 50)
+			if d.get("antlers", false):
+				var antler := _mesh(_head, Shapes.cylinder(s * 0.05, s * 1.0, s * 0.02), Color(0.85, 0.8, 0.65), Vector3(x * s * 0.25, s * 0.55, -s * 0.05))
+				antler.rotation_degrees.z = -x * 25
+				var tine := _mesh(_head, Shapes.cylinder(s * 0.04, s * 0.45, s * 0.02), Color(0.85, 0.8, 0.65), Vector3(x * s * 0.42, s * 0.65, s * 0.15))
+				tine.rotation_degrees = Vector3(35, 0, -x * 50)
+			elif d.get("horns", false):
+				var horn := _mesh(_head, Shapes.cylinder(s * 0.08, s * 0.6, s * 0.02), Color(0.5, 0.45, 0.38), Vector3(x * s * 0.2, s * 0.4, -s * 0.1))
+				horn.rotation_degrees = Vector3(-40, 0, -x * 30)
+			elif d.get("pointed_ears", false):
+				var ear := _pivot(_head, Vector3(x * s * 0.28, s * 0.4, s * 0.05))
+				_mesh(ear, Shapes.cylinder(s * 0.14, s * 0.4, 0.0), c.darkened(0.15), Vector3(0, s * 0.15, 0))
+				_ears.append(ear)
+		if d.get("pointed_ears", false): # bushy tail
+			_tail = _pivot(_torso, Vector3(0, s * 0.25, -s * 1.3))
+			_mesh(_tail, Shapes.capsule(s * 0.22, s * 1.1), c.darkened(0.1), Vector3(0, s * 0.2, -s * 0.4)).rotation_degrees.x = -50
+			_mesh(_head, Shapes.sphere(s * 0.22), c.darkened(0.25), Vector3(0, -s * 0.08, s * 0.5), Vector3(0.9, 0.8, 1.3)) # snout
 		return
 
 	_torso = _pivot(_body, Vector3(0, s, 0))
@@ -243,7 +270,7 @@ func _build_shape() -> void:
 	_mesh(_head, Shapes.sphere(s * 0.1), Color(0.1, 0.08, 0.06), Vector3(0, s * 0.05, s * 0.8))
 	for x in [-1, 1]:
 		_mesh(_head, Shapes.sphere(s * 0.09), Color(0.05, 0.05, 0.05), Vector3(x * s * 0.3, s * 0.25, s * 0.55))
-	if kind == "rabbit":
+	if d.get("long_ears", false):
 		for x in [-1, 1]:
 			var ear := _pivot(_head, Vector3(x * s * 0.2, s * 0.55, s * 0.1))
 			_mesh(ear, Shapes.capsule(s * 0.14, s * 1.1), c, Vector3(0, s * 0.5, 0), Vector3(1, 1, 0.6))
