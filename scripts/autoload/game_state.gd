@@ -41,6 +41,7 @@ var demo_done := false
 var player_position := Vector2.ZERO
 var has_player_position := false
 var visited_zones := [] # zone ids the hunter has set foot in
+var notifications_on := true # phone notifications when a timer ends in the background
 var sounds_on := true
 var time_offset := 0.0 # dev: shifts the day/night clock (not saved)
 var pinned_recipe := "" # recipe followed on the HUD, or ""
@@ -58,6 +59,9 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
 		save_game()
+		NotifyService.on_pause()
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		NotifyService.on_resume()
 
 
 func _process(delta: float) -> void:
@@ -712,6 +716,7 @@ func start_build(id: String) -> void:
 	_pay(next["cost"])
 	structures[id]["next_tier"] = tier + 1
 	structures[id]["busy_until"] = now() + next["time"]
+	NotifyService.ensure_permission()
 	notify("Building %s…" % Data.STRUCTURES[id]["name"].to_lower())
 	changed.emit()
 	save_game()
@@ -799,6 +804,14 @@ func start_craft(recipe_id: String, count := 1) -> void:
 	var start: float = q[-1]["done_at"] if not q.is_empty() else now() # chained behind the queue
 	q.append({"recipe": recipe_id, "count": count, "done_at": start + total, "total": total})
 	craft_jobs[station] = q
+	NotifyService.ensure_permission()
+	changed.emit()
+	save_game()
+
+
+func toggle_notifications() -> void:
+	notifications_on = not notifications_on
+	notify("Notifications %s." % ("on" if notifications_on else "off"))
 	changed.emit()
 	save_game()
 
@@ -975,6 +988,7 @@ func _reset_state() -> void:
 	has_player_position = false
 	pinned_recipe = ""
 	seen_recipes = []
+	notifications_on = true
 	visited_zones = [Data.ZONES[0]["id"]]
 	sounds_on = true
 
@@ -993,6 +1007,7 @@ func save_game() -> void:
 		"bosses_defeated": bosses_defeated, "demo_done": demo_done,
 		"player_position": [player_position.x, player_position.y],
 		"pinned_recipe": pinned_recipe, "seen_recipes": seen_recipes, "visited_zones": visited_zones,
+		"notifications_on": notifications_on,
 		"sounds_on": sounds_on,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -1070,6 +1085,7 @@ func load_game() -> void:
 			visited_zones.append(id)
 	if not data.has("visited_zones") and level >= Data.ZONES[1]["unlock"]["level"]:
 		visited_zones.append(Data.ZONES[1]["id"]) # older save: the forest was already open
+	notifications_on = bool(data.get("notifications_on", true))
 	sounds_on = bool(data.get("sounds_on", true))
 	pinned_recipe = str(data.get("pinned_recipe", ""))
 	if not Data.RECIPES.has(pinned_recipe):
