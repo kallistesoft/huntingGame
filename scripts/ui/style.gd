@@ -27,6 +27,8 @@ const ITEM_COLORS := {
 	"fibre": Color("b5bf6a"), "rope": Color("d8b36a"), "leather": Color("a0703f"), "thick_leather": Color("7a4e28"),
 	"iron_ore": Color("b07a58"), "iron_bar": Color("9fb4c7"), "herbs": Color("7cc46b"), "horn": Color("d9cfb8"),
 	"wolf_pelt": Color("8e8e99"), "bear_pelt": Color("4e3524"), "claw": Color("e8e0cc"),
+	"silver_ore": Color("b9c2cc"), "silver_bar": Color("dfe6ee"), "thick_fur": Color("eef0f4"), "ice_pelt": Color("cfd8e6"),
+	"mammoth_pelt": Color("6b4a33"), "mammoth_tusk": Color("f1ead6"),
 }
 
 static var _font: FontFile
@@ -110,6 +112,8 @@ static func add_press_juice(c: Control) -> void:
 	c.resized.connect(func() -> void: c.pivot_offset = c.size / 2.0)
 	c.pivot_offset = c.size / 2.0
 	if c is BaseButton:
-		c.button_down.connect(func() -> void: c.create_tween().tween_property(c, "scale", Vector2.ONE * 0.9, 0.06))
+		c.button_down.connect(func() -> void:
+			Sfx.play("ui_tap", 0.15)
+			c.create_tween().tween_property(c, "scale", Vector2.ONE * 0.9, 0.06))
 		c.button_up.connect(func() -> void:
 			c.create_tween().tween_property(c, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))

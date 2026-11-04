@@ -158,7 +158,8 @@ func _build_quest() -> void:
 	add_child(column)
 	_quest_card = PanelContainer.new()
 	_quest_card.theme_type_variation = "Pill"
-	_quest_card.custom_minimum_size = Vector2(368, 0)
+	_quest_card.custom_minimum_size = Vector2(300, 0)
+	_quest_card.size.x = 300
 	_quest_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_quest_card)
 	var row := HBoxContainer.new()
@@ -176,6 +177,8 @@ func _build_quest() -> void:
 	row.add_child(col)
 	_quest_label = Label.new()
 	_quest_label.add_theme_font_size_override("font_size", 17)
+	_quest_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_quest_label.custom_minimum_size = Vector2(230, 0)
 	col.add_child(_quest_label)
 	_quest_bar = ProgressBar.new()
 	_quest_bar.custom_minimum_size = Vector2(0, 8)
@@ -186,7 +189,7 @@ func _build_quest() -> void:
 	# Pinned recipe: what you still need for it, updated as you gather.
 	_pinned_card = PanelContainer.new()
 	_pinned_card.theme_type_variation = "Pill"
-	_pinned_card.custom_minimum_size = Vector2(368, 0)
+	_pinned_card.custom_minimum_size = Vector2(300, 0)
 	_pinned_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pinned_card.visible = false
 	column.add_child(_pinned_card)
@@ -205,6 +208,8 @@ func _build_quest() -> void:
 	prow.add_child(pcol)
 	_pinned_label = Label.new()
 	_pinned_label.add_theme_font_size_override("font_size", 17)
+	_pinned_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pinned_label.custom_minimum_size = Vector2(230, 0)
 	pcol.add_child(_pinned_label)
 	_pinned_chips = HFlowContainer.new()
 	_pinned_chips.add_theme_constant_override("h_separation", 6)
@@ -570,6 +575,7 @@ func _bump(c: Control) -> void:
 
 func _on_level_up(level: int) -> void:
 	_banner.text = "LEVEL %d!" % level
+	Sfx.play("level_up", 0.0)
 	_banner.visible = true
 	_banner.pivot_offset = _banner.size / 2.0
 	_banner.scale = Vector2.ONE * 0.3

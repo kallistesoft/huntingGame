@@ -19,12 +19,12 @@ var _bar_label: Label3D
 
 func _ready() -> void:
 	add_to_group("interactable")
-	_label = Shapes.label(self, "", Vector3(0, 3.6 if kind == "house" else 2.6, 0), 40)
+	_label = Shapes.label(self, "", Vector3(0, 3.3 if kind == "house" else 2.2, 0), 40)
 	if kind == "board":
 		_build_board()
 		_label.text = "Quests"
 	else:
-		_build_bar(4.4 if kind == "house" else 3.4)
+		_build_bar(4.1 if kind == "house" else 3.0)
 	Game.changed.connect(_refresh)
 	_refresh()
 

@@ -14,6 +14,8 @@ var remaining := 0
 var _regrow_at := 0.0
 var _full: Node3D # parts hidden once gathered out
 var _empty: Node3D # parts shown once gathered out
+var _fade := 0.0 # 0 solid .. 1 see-through, when standing between the camera and the hunter
+var _fade_meshes: Array[MeshInstance3D] = []
 
 
 func _ready() -> void:
@@ -25,13 +27,38 @@ func _ready() -> void:
 	_build_shape()
 	if kind != "pond":
 		remaining = Data.RESOURCES[kind]["amount"]
+	for child in _full.get_children():
+		if child is MeshInstance3D:
+			_fade_meshes.append(child)
 	_refresh()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if kind != "pond" and remaining <= 0 and Game.now() >= _regrow_at:
 		remaining = Data.RESOURCES[kind]["amount"]
 		_refresh()
+	if kind == "tree" or kind == "grass":
+		_update_fade(delta)
+
+
+## Trees and tall grass between the camera and the hunter go see-through so
+## they don't hide them. The camera sits above and behind (+z), so what is
+## in the way is a bit in front of the hunter on the screen.
+func _update_fade(delta: float) -> void:
+	var hunter := Shapes.flat(world.player)
+	var here := Shapes.flat(self)
+	var dz := here.y - hunter.y
+	var blocking := dz > 0.5 and dz < 7.0 and absf(here.x - hunter.x) < 2.5
+	var target := 0.75 if blocking else 0.0
+	if absf(target - _fade) < 0.01:
+		return
+	_fade = lerpf(_fade, target, minf(1.0, 8.0 * delta))
+	for m in _fade_meshes:
+		m.transparency = _fade
+
+
+func fade_amount() -> float:
+	return _fade
 
 
 func is_available() -> bool:
@@ -42,7 +69,7 @@ func action_label() -> String:
 	match kind:
 		"pond": return "Drink"
 		"tree": return "Chop"
-		"rock", "iron_rock": return "Mine"
+		"rock", "iron_rock", "silver_rock": return "Mine"
 		"grass": return "Cut grass"
 		"herb": return "Pick herbs"
 		_: return "Pick berries"
@@ -52,7 +79,7 @@ func action_icon() -> String:
 	match kind:
 		"pond": return "water"
 		"tree": return "axe"
-		"rock", "iron_rock": return "pick"
+		"rock", "iron_rock", "silver_rock": return "pick"
 		"grass": return "grass"
 		"herb": return "herb"
 		_: return "berries"
@@ -112,6 +139,13 @@ func _build_shape() -> void:
 			for v in [Vector3(0.2, 0.45, 0.35), Vector3(-0.15, 0.55, -0.3), Vector3(0.45, 0.25, -0.1)]:
 				Shapes.add(_full, Shapes.sphere(0.12), Color(0.75, 0.45, 0.28), v, Vector3(1.4, 0.6, 1.0)) # rusty veins
 			Shapes.add(_empty, Shapes.sphere(0.2), grey, Vector3(0, 0.1, 0), Vector3(1, 0.6, 1))
+		"silver_rock":
+			var pale := Color(0.6, 0.62, 0.66)
+			Shapes.add(_full, Shapes.sphere(0.55), pale, Vector3(0, 0.28, 0), Vector3(1.2, 0.9, 1.1))
+			Shapes.add(_full, Shapes.sphere(0.3), pale.darkened(0.1), Vector3(0.4, 0.18, -0.2))
+			for v in [Vector3(-0.2, 0.5, 0.3), Vector3(0.25, 0.55, -0.25), Vector3(-0.4, 0.3, -0.1)]:
+				Shapes.add(_full, Shapes.sphere(0.11), Color(0.93, 0.95, 1.0), v, Vector3(1.5, 0.5, 1.0)) # bright veins
+			Shapes.add(_empty, Shapes.sphere(0.2), pale, Vector3(0, 0.1, 0), Vector3(1, 0.6, 1))
 		"herb":
 			var leaf := Color(0.35, 0.62, 0.35)
 			for i in 5:

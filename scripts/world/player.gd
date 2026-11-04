@@ -181,12 +181,12 @@ func _update_gear() -> void:
 
 ## Cloth colour by tier: fur, leather, wolf pelt.
 static func _tier_cloth(tier: int) -> Color:
-	return [Color(0.78, 0.56, 0.33), Color(0.47, 0.3, 0.16), Color(0.5, 0.5, 0.56)][clampi(tier, 1, 3) - 1]
+	return [Color(0.78, 0.56, 0.33), Color(0.47, 0.3, 0.16), Color(0.5, 0.5, 0.56), Color(0.9, 0.9, 0.95)][clampi(tier, 1, 4) - 1]
 
 
 ## Tool-head colour by tier: stone, bone, iron.
 static func _tier_metal(tier: int) -> Color:
-	return [Color(0.6, 0.6, 0.62), Color(0.92, 0.88, 0.78), Color(0.55, 0.62, 0.72)][clampi(tier, 1, 3) - 1]
+	return [Color(0.6, 0.6, 0.62), Color(0.92, 0.88, 0.78), Color(0.55, 0.62, 0.72), Color(0.86, 0.88, 0.93)][clampi(tier, 1, 4) - 1]
 
 
 ## Built facing +Z so rotation.y = atan2(x, z) points it where it walks.
