@@ -12,6 +12,9 @@ var radius := 1.1
 var _model: Node3D
 var _label: Label3D
 var _shown_tier := -1
+var _bar: Node3D # progress over the roof while building or crafting
+var _bar_fill: Node3D
+var _bar_label: Label3D
 
 
 func _ready() -> void:
@@ -20,13 +23,57 @@ func _ready() -> void:
 	if kind == "board":
 		_build_board()
 		_label.text = "Quests"
+	else:
+		_build_bar(4.4 if kind == "house" else 3.4)
 	Game.changed.connect(_refresh)
 	_refresh()
 
 
 func _process(_delta: float) -> void:
-	if kind != "board" and Game.structure_busy(kind):
-		_refresh()
+	if kind != "board":
+		_update_bar()
+
+
+## A bar above the building: dark track, orange fill that grows from the
+## left, and a line of text. Tilted to face the fixed camera.
+func _build_bar(height: float) -> void:
+	_bar = Node3D.new()
+	_bar.position = Vector3(0, height, 0)
+	_bar.rotation_degrees.x = -35.0
+	_bar.visible = false
+	add_child(_bar)
+	Shapes.add(_bar, Shapes.box(Vector3(1.7, 0.05, 0.22)), Color(0.08, 0.1, 0.08), Vector3(0, 0, 0))
+	_bar_fill = Node3D.new()
+	_bar_fill.position = Vector3(-0.8, 0.01, 0)
+	_bar.add_child(_bar_fill)
+	Shapes.add(_bar_fill, Shapes.box(Vector3(1.6, 0.06, 0.16)), Style.ACCENT, Vector3(0.8, 0, 0))
+	_bar_label = Shapes.label(self, "", Vector3(0, height + 0.45, 0), 34)
+	_bar_label.modulate = Style.ACCENT
+	_bar_label.visible = false
+
+
+func _update_bar() -> void:
+	var text := ""
+	var frac := 0.0
+	if Game.structure_busy(kind):
+		var next_tier: int = Game.structures[kind]["next_tier"]
+		var total: float = Data.STRUCTURES[kind]["tiers"][next_tier - 1]["time"]
+		var left: float = Game.structures[kind]["busy_until"] - Game.now()
+		frac = 1.0 - clampf(left / total, 0.0, 1.0)
+		text = "Tier %d · %s" % [next_tier, _fmt(left)]
+	elif not Game.craft_queue(kind).is_empty():
+		var job: Dictionary = Game.craft_job_at(kind)
+		frac = 1.0 - clampf(Game.craft_left(kind) / Game.craft_total(kind), 0.0, 1.0)
+		text = Data.recipe_name(job["recipe"]) + (" ×%d" % job["count"] if job["count"] > 1 else "") + " · " + _fmt(Game.craft_left(kind))
+		var more := Game.craft_queue(kind).size() - 1
+		if more > 0:
+			text += "  +%d" % more
+	_bar.visible = text != ""
+	_bar_label.visible = text != ""
+	if text == "":
+		return
+	_bar_fill.scale.x = maxf(0.01, frac)
+	_bar_label.text = text
 
 
 func is_available() -> bool:
@@ -73,8 +120,6 @@ func _refresh() -> void:
 	var text := title() if tier > 0 else "Build: " + title()
 	if tier > 0:
 		text += " " + "★".repeat(tier)
-	if Game.structure_busy(kind):
-		text += "\nBuilding… %s" % _fmt(Game.structures[kind]["busy_until"] - Game.now())
 	_label.text = text
 
 

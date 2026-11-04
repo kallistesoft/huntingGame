@@ -200,9 +200,17 @@ func _craft_status(station: String) -> void:
 	var id: String = job["recipe"]
 	var count: int = job.get("count", 1)
 	var look := look_of(id)
-	var total: float = Data.RECIPES[id]["time"] * count * Game.station_speed(station)
 	var title := "Crafting %s" % Data.recipe_name(id) + (" ×%d" % count if count > 1 else "")
-	_timer_card(look[0], look[1], title, Game.craft_left.bind(station), total, "craft:" + station)
+	_timer_card(look[0], look[1], title, Game.craft_left.bind(station), job["total"], "craft:" + station)
+	# Waiting jobs, each with a cancel that refunds its materials.
+	var q := Game.craft_queue(station)
+	for i in range(1, q.size()):
+		var waiting: Dictionary = q[i]
+		var wait_fn := func() -> String: return "starts in %s" % fmt_time(maxf(0.0, q[i - 1]["done_at"] - Game.now()))
+		_row("Next: %s%s\n%s" % [Data.recipe_name(waiting["recipe"]), " ×%d" % waiting["count"] if waiting["count"] > 1 else "", wait_fn.call()],
+			[["Cancel", true, Game.cancel_craft.bind(station, i)]])
+		_live.append([_content.get_child(_content.get_child_count() - 1).get_child(0).get_child(0).get_child(1), wait_fn])
+	_label("Queue: %d / %d. Jobs run one after the other, even while the app is closed." % [q.size(), Game.queue_slots()], Style.MUTED, 17)
 
 
 ## "ready", "busy" (another craft is running), "missing" (materials),
@@ -215,7 +223,7 @@ func _recipe_state(id: String) -> String:
 		return "locked"
 	if not Game.can_afford(r["cost"]):
 		return "missing"
-	if Game.craft_jobs.has(r["station"]):
+	if Game.craft_queue(r["station"]).size() >= Game.queue_slots():
 		return "busy"
 	return "ready"
 
@@ -283,7 +291,7 @@ func _recipe_card(id: String) -> void:
 			col.add_child(_make_label("Unlocks at %s tier %d" % [Data.STRUCTURES[r["station"]]["name"].to_lower(), r["tier"]], Style.MUTED, 17))
 			card.modulate.a = 0.55
 		"busy":
-			col.add_child(_make_label("Wait for the current craft", Style.MUTED, 17))
+			col.add_child(_make_label("Queue full: wait for a craft to finish", Style.MUTED, 17))
 
 	if state == "owned":
 		card.modulate.a = 0.7
@@ -305,19 +313,21 @@ func _recipe_card(id: String) -> void:
 		_place(card)
 		return
 
-	# Craft (×1 / ×5 / Max for items you can make several of).
+	# Craft (×1 / ×5 / Max for items you can make several of). "Queue" when
+	# the station is already working.
+	var verb := "Queue" if not Game.craft_queue(r["station"]).is_empty() else "Craft"
 	var max_count := Game.max_craft_count(id)
 	if r.has("item") and max_count > 1:
 		var stack := VBoxContainer.new()
 		stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		stack.add_theme_constant_override("separation", 6)
 		row.add_child(stack)
-		stack.add_child(_button("Craft", state == "ready", Game.start_craft.bind(id, 1), true, 48))
+		stack.add_child(_button(verb, state == "ready", Game.start_craft.bind(id, 1), true, 48))
 		if max_count >= 5:
 			stack.add_child(_button("×5", state == "ready", Game.start_craft.bind(id, 5), false, 44))
 		stack.add_child(_button("Max ×%d" % max_count, state == "ready", Game.start_craft.bind(id, max_count), false, 44))
 	else:
-		row.add_child(_button("Craft", state == "ready", Game.start_craft.bind(id, 1), true))
+		row.add_child(_button(verb, state == "ready", Game.start_craft.bind(id, 1), true))
 	_place(card)
 
 

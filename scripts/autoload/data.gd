@@ -288,6 +288,8 @@ const RECIPES := {
 }
 
 const CRAFT_XP := 5
+## Jobs a station can hold at once: one running and the rest waiting.
+const QUEUE_SLOTS := 2
 
 # --- Camp structures ---------------------------------------------------------
 
