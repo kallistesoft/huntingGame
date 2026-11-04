@@ -852,9 +852,10 @@ func gain_xp(amount: int) -> void:
 
 
 func current_quest() -> Dictionary:
-	if quest_index >= Data.QUESTS.size():
+	var all := Data.quests()
+	if quest_index >= all.size():
 		return {}
-	return Data.QUESTS[quest_index]
+	return all[quest_index]
 
 
 func quest_progress_count() -> int:
@@ -862,7 +863,7 @@ func quest_progress_count() -> int:
 	if q.is_empty():
 		return 0
 	match q["type"]:
-		"build": return 1 if structure_tier(q["target"]) >= 1 else 0
+		"build": return 1 if structure_tier(q["target"]) >= q.get("tier", 1) else 0
 		"level": return level
 		"boss": return 1 if bosses_defeated.has(q["target"]) else 0
 	return quest_progress
@@ -870,8 +871,10 @@ func quest_progress_count() -> int:
 
 func quest_event(type: String, target: String, n: int) -> void:
 	var q := current_quest()
-	if not q.is_empty() and q["type"] == type and q["target"] == target:
-		quest_progress += n
+	if not q.is_empty() and q["type"] == type:
+		var wanted: String = q["target"]
+		if wanted == target or (Data.QUEST_GROUPS.has(wanted) and target in Data.QUEST_GROUPS[wanted]):
+			quest_progress += n
 	_check_quest()
 
 

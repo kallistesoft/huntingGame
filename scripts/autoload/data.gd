@@ -33,7 +33,7 @@ const ADS_PER_DAY := 10
 # --- Progression -------------------------------------------------------------
 
 ## Total XP needed to reach level (index + 1). Level 1 starts at 0 XP.
-const LEVEL_XP := [0, 50, 170, 390, 700, 1100, 1600, 2200, 2900, 3700, 4600, 5600, 6700, 7900, 9200]
+const LEVEL_XP := [0, 50, 150, 300, 500, 750, 1050, 1400, 1800, 2250, 2750, 3300, 3900, 4550, 5250]
 
 # --- Zones -------------------------------------------------------------------
 
@@ -200,25 +200,25 @@ const ANIMALS := {
 	"deer": {
 		"name": "Deer", "hp": 3, "size": 0.45, "color": Color(0.6, 0.4, 0.22), "legs": true, "antlers": true,
 		"wander_speed": 0.9, "flee_speed": 4.4, "flee_radius": 5.0,
-		"xp": 12, "drops": {"raw_meat": 3, "fur": 2, "hide": 1, "antler": 1, "bone": 1}, "respawn": 60.0,
+		"xp": 25, "drops": {"raw_meat": 3, "fur": 2, "hide": 1, "antler": 1, "bone": 1}, "respawn": 60.0,
 	},
 	# Mountains. A wolf is "aggressive": it hunts the hunter inside flee_radius
 	# (its aggro range), runs at flee_speed and bites every bite_every seconds.
 	"snow_hare": {
 		"name": "Snow hare", "hp": 1, "size": 0.26, "color": Color(0.95, 0.95, 0.97), "long_ears": true,
 		"wander_speed": 1.0, "flee_speed": 3.9, "flee_radius": 3.75,
-		"xp": 7, "drops": {"raw_meat": 1, "fur": 2}, "respawn": 40.0,
+		"xp": 10, "drops": {"raw_meat": 1, "fur": 2}, "respawn": 40.0,
 	},
 	"goat": {
 		"name": "Mountain goat", "hp": 3, "size": 0.42, "color": Color(0.85, 0.8, 0.7), "legs": true, "horns": true,
 		"wander_speed": 0.9, "flee_speed": 4.3, "flee_radius": 4.5,
-		"xp": 14, "drops": {"raw_meat": 2, "hide": 1, "horn": 1, "bone": 1}, "respawn": 60.0,
+		"xp": 30, "drops": {"raw_meat": 2, "hide": 1, "horn": 1, "bone": 1}, "respawn": 60.0,
 	},
 	"wolf": {
 		"name": "Wolf", "hp": 4, "size": 0.4, "color": Color(0.45, 0.45, 0.5), "legs": true, "pointed_ears": true,
 		"wander_speed": 1.1, "flee_speed": 4.6, "flee_radius": 6.0,
 		"aggressive": true, "bite": 12.0, "bite_every": 1.6, "bite_text": "The wolf bites you!",
-		"xp": 20, "drops": {"raw_meat": 2, "wolf_pelt": 1, "bone": 1}, "respawn": 75.0,
+		"xp": 40, "drops": {"raw_meat": 2, "wolf_pelt": 1, "bone": 1}, "respawn": 75.0,
 	},
 }
 
@@ -233,7 +233,7 @@ const BOSSES := {
 		"walk_speed": 1.6, "charge_speed": 9.0, "aggro_radius": 8.0,
 		"windup": 0.9, "charge_time": 0.8, "dizzy": 2.2, "dizzy_damage_mult": 2,
 		"hit_damage": 30.0, "knockback": 4.0, "regen_per_sec": 0.5,
-		"xp": 150, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2, "bone": 3},
+		"xp": 400, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2, "bone": 3},
 	},
 	"bear": {
 		"name": "Great Bear", "look": "bear", "hit_text": "The bear swipes you!",
@@ -242,7 +242,7 @@ const BOSSES := {
 		"walk_speed": 1.5, "charge_speed": 7.5, "aggro_radius": 8.5,
 		"windup": 1.0, "charge_time": 0.9, "dizzy": 2.0, "dizzy_damage_mult": 2,
 		"hit_damage": 40.0, "knockback": 4.5, "regen_per_sec": 0.6,
-		"xp": 300, "drops": {"raw_meat": 8, "bear_pelt": 2, "claw": 2, "bone": 4},
+		"xp": 900, "drops": {"raw_meat": 8, "bear_pelt": 2, "claw": 2, "bone": 4},
 	},
 }
 
@@ -266,25 +266,25 @@ const RECIPES := {
 	"fibre_wraps": {"tool": "fibre_wraps", "tier": 1, "station": "crafting", "time": 12.0, "cost": {"fibre": 6}},
 	"fibre_pouch": {"tool": "fibre_pouch", "tier": 1, "station": "crafting", "time": 20.0, "cost": {"fibre": 8, "rope": 1}},
 	"leather": {"item": "leather", "count": 1, "tier": 1, "station": "tanning", "time": 20.0, "cost": {"hide": 1, "fibre": 1}},
-	"bone_spear": {"tool": "bone_spear", "tier": 2, "station": "crafting", "time": 30.0, "cost": {"spear": 1, "bone": 2, "rope": 1}},
-	"bow": {"tool": "bow", "tier": 2, "station": "crafting", "time": 40.0, "cost": {"wood": 6, "leather": 2, "rope": 2}},
-	"bone_axe": {"tool": "bone_axe", "tier": 2, "station": "crafting", "time": 30.0, "cost": {"stone_axe": 1, "bone": 3, "rope": 1}},
-	"bone_pick": {"tool": "bone_pick", "tier": 2, "station": "crafting", "time": 30.0, "cost": {"stone_pick": 1, "bone": 3, "rope": 1}},
-	"tusk_helm": {"tool": "tusk_helm", "tier": 2, "station": "crafting", "time": 40.0, "cost": {"fur_hood": 1, "tusk": 1, "leather": 2}},
-	"leather_armor": {"tool": "leather_armor", "tier": 2, "station": "crafting", "time": 60.0, "cost": {"fur_tunic": 1, "leather": 4, "rope": 2}},
-	"leather_boots": {"tool": "leather_boots", "tier": 2, "station": "crafting", "time": 40.0, "cost": {"fibre_wraps": 1, "leather": 3}},
-	"leather_bag": {"tool": "leather_bag", "tier": 2, "station": "crafting", "time": 45.0, "cost": {"fibre_pouch": 1, "leather": 4}},
+	"bone_spear": {"tool": "bone_spear", "tier": 2, "station": "crafting", "time": 60.0, "cost": {"spear": 1, "bone": 2, "rope": 1}},
+	"bow": {"tool": "bow", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"wood": 6, "leather": 2, "rope": 2}},
+	"bone_axe": {"tool": "bone_axe", "tier": 2, "station": "crafting", "time": 60.0, "cost": {"stone_axe": 1, "bone": 3, "rope": 1}},
+	"bone_pick": {"tool": "bone_pick", "tier": 2, "station": "crafting", "time": 60.0, "cost": {"stone_pick": 1, "bone": 3, "rope": 1}},
+	"tusk_helm": {"tool": "tusk_helm", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"fur_hood": 1, "tusk": 1, "leather": 2}},
+	"leather_armor": {"tool": "leather_armor", "tier": 2, "station": "crafting", "time": 120.0, "cost": {"fur_tunic": 1, "leather": 4, "rope": 2}},
+	"leather_boots": {"tool": "leather_boots", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"fibre_wraps": 1, "leather": 3}},
+	"leather_bag": {"tool": "leather_bag", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"fibre_pouch": 1, "leather": 4}},
 	# Tier 3 (mountains): iron bars from the forge, thick leather from wolf pelts.
 	"iron_bar": {"item": "iron_bar", "count": 1, "tier": 1, "station": "forge", "time": 30.0, "cost": {"iron_ore": 2, "wood": 2}},
 	"thick_leather": {"item": "thick_leather", "count": 1, "tier": 3, "station": "tanning", "time": 40.0, "cost": {"wolf_pelt": 1, "leather": 1}},
-	"iron_spear": {"tool": "iron_spear", "tier": 3, "station": "crafting", "time": 60.0, "cost": {"bone_spear": 1, "iron_bar": 2, "rope": 1}},
-	"iron_bow": {"tool": "iron_bow", "tier": 3, "station": "crafting", "time": 80.0, "cost": {"bow": 1, "iron_bar": 1, "thick_leather": 1}},
-	"iron_axe": {"tool": "iron_axe", "tier": 3, "station": "crafting", "time": 60.0, "cost": {"bone_axe": 1, "iron_bar": 2}},
-	"iron_pick": {"tool": "iron_pick", "tier": 3, "station": "crafting", "time": 60.0, "cost": {"bone_pick": 1, "iron_bar": 2}},
-	"iron_helm": {"tool": "iron_helm", "tier": 3, "station": "crafting", "time": 80.0, "cost": {"tusk_helm": 1, "iron_bar": 2, "thick_leather": 1}},
-	"wolf_armor": {"tool": "wolf_armor", "tier": 3, "station": "crafting", "time": 120.0, "cost": {"leather_armor": 1, "thick_leather": 4, "rope": 2}},
-	"wolf_boots": {"tool": "wolf_boots", "tier": 3, "station": "crafting", "time": 80.0, "cost": {"leather_boots": 1, "thick_leather": 2}},
-	"hunters_pack": {"tool": "hunters_pack", "tier": 3, "station": "crafting", "time": 90.0, "cost": {"leather_bag": 1, "thick_leather": 3, "rope": 2}},
+	"iron_spear": {"tool": "iron_spear", "tier": 3, "station": "crafting", "time": 150.0, "cost": {"bone_spear": 1, "iron_bar": 2, "rope": 1}},
+	"iron_bow": {"tool": "iron_bow", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"bow": 1, "iron_bar": 1, "thick_leather": 1}},
+	"iron_axe": {"tool": "iron_axe", "tier": 3, "station": "crafting", "time": 150.0, "cost": {"bone_axe": 1, "iron_bar": 2}},
+	"iron_pick": {"tool": "iron_pick", "tier": 3, "station": "crafting", "time": 150.0, "cost": {"bone_pick": 1, "iron_bar": 2}},
+	"iron_helm": {"tool": "iron_helm", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"tusk_helm": 1, "iron_bar": 2, "thick_leather": 1}},
+	"wolf_armor": {"tool": "wolf_armor", "tier": 3, "station": "crafting", "time": 240.0, "cost": {"leather_armor": 1, "thick_leather": 4, "rope": 2}},
+	"wolf_boots": {"tool": "wolf_boots", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"leather_boots": 1, "thick_leather": 2}},
+	"hunters_pack": {"tool": "hunters_pack", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"leather_bag": 1, "thick_leather": 3, "rope": 2}},
 }
 
 const CRAFT_XP := 5
@@ -297,26 +297,26 @@ const CRAFT_XP := 5
 const STRUCTURES := {
 	"crafting": {"name": "Crafting place", "tiers": [
 		{"cost": {"wood": 5}, "time": 10.0, "level": 1, "house_tier": 0},
-		{"cost": {"wood": 10, "stone": 6, "rope": 2}, "time": 30.0, "level": 2, "house_tier": 1},
-		{"cost": {"wood": 20, "stone": 15, "leather": 2, "antler": 2}, "time": 60.0, "level": 4, "house_tier": 2},
+		{"cost": {"wood": 10, "stone": 6, "rope": 2}, "time": 120.0, "level": 2, "house_tier": 1},
+		{"cost": {"wood": 20, "stone": 15, "leather": 2, "antler": 2}, "time": 300.0, "level": 4, "house_tier": 2},
 	]},
 	"storage": {"name": "Storage", "tiers": [
 		{"cost": {"wood": 8}, "time": 15.0, "level": 1, "house_tier": 0, "capacity": 50.0},
-		{"cost": {"wood": 15, "stone": 8, "rope": 2}, "time": 30.0, "level": 2, "house_tier": 1, "capacity": 150.0},
-		{"cost": {"wood": 25, "stone": 20, "hide": 4}, "time": 60.0, "level": 4, "house_tier": 2, "capacity": 400.0},
+		{"cost": {"wood": 15, "stone": 8, "rope": 2}, "time": 120.0, "level": 2, "house_tier": 1, "capacity": 150.0},
+		{"cost": {"wood": 25, "stone": 20, "hide": 4}, "time": 300.0, "level": 4, "house_tier": 2, "capacity": 400.0},
 	]},
 	"house": {"name": "House", "tiers": [
 		{"cost": {"wood": 12, "stone": 4}, "time": 20.0, "level": 1, "house_tier": 0, "sleep_time": 40.0, "max_energy": 100.0},
-		{"cost": {"wood": 20, "stone": 12, "leather": 3}, "time": 45.0, "level": 3, "house_tier": 0, "sleep_time": 30.0, "max_energy": 120.0},
-		{"cost": {"wood": 30, "stone": 25, "leather": 6}, "time": 90.0, "level": 5, "house_tier": 0, "sleep_time": 20.0, "max_energy": 150.0},
+		{"cost": {"wood": 20, "stone": 12, "leather": 3}, "time": 180.0, "level": 3, "house_tier": 0, "sleep_time": 30.0, "max_energy": 120.0},
+		{"cost": {"wood": 30, "stone": 25, "leather": 6}, "time": 360.0, "level": 5, "house_tier": 0, "sleep_time": 20.0, "max_energy": 150.0},
 	]},
 	"tanning": {"name": "Tanning rack", "tiers": [
 		{"cost": {"wood": 6, "fibre": 6}, "time": 20.0, "level": 2, "house_tier": 0, "speed": 1.0},
-		{"cost": {"wood": 10, "rope": 2, "hide": 2}, "time": 40.0, "level": 4, "house_tier": 1, "speed": 0.5},
-		{"cost": {"wood": 14, "rope": 4, "leather": 4}, "time": 60.0, "level": 8, "house_tier": 2, "speed": 0.4},
+		{"cost": {"wood": 10, "rope": 2, "hide": 2}, "time": 120.0, "level": 4, "house_tier": 1, "speed": 0.5},
+		{"cost": {"wood": 14, "rope": 4, "leather": 4}, "time": 300.0, "level": 8, "house_tier": 2, "speed": 0.4},
 	]},
 	"forge": {"name": "Forge", "tiers": [
-		{"cost": {"stone": 20, "wood": 10, "rope": 4}, "time": 60.0, "level": 8, "house_tier": 2},
+		{"cost": {"stone": 20, "wood": 10, "rope": 4}, "time": 300.0, "level": 8, "house_tier": 2},
 	]},
 }
 
@@ -324,34 +324,72 @@ const BUILD_XP_PER_TIER := 15
 
 # --- Quests ------------------------------------------------------------------
 
-## Done in order. Types: "gather" (item from trees/rocks/bushes), "hunt" (animal
-## kills), "collect" (an animal's drop, target "animal:item"), "craft" (recipe),
-## "build" (structure; also counts one built earlier), "level" (reach a level),
-## "boss" (defeat the Great Boar), "travel" (cross the mountain pass).
-const QUESTS := [
-	{"text": "Gather 5 wood", "type": "gather", "target": "wood", "count": 5, "xp": 15},
-	{"text": "Build the crafting place", "type": "build", "target": "crafting", "count": 1, "xp": 20},
-	{"text": "Craft a wooden spear", "type": "craft", "target": "spear", "count": 1, "xp": 20},
-	{"text": "Harvest 2 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 2, "xp": 30},
-	{"text": "Build the storage", "type": "build", "target": "storage", "count": 1, "xp": 25},
-	{"text": "Gather 6 fibre from tall grass", "type": "gather", "target": "fibre", "count": 6, "xp": 15},
-	{"text": "Craft fibre wraps", "type": "craft", "target": "fibre_wraps", "count": 1, "xp": 25},
-	{"text": "Build the tanning rack", "type": "build", "target": "tanning", "count": 1, "xp": 25},
-	{"text": "Tan 1 leather", "type": "craft", "target": "leather", "count": 1, "xp": 25},
-	{"text": "Harvest 1 squirrel fur", "type": "collect", "target": "squirrel:fur", "count": 1, "xp": 20},
-	{"text": "Harvest 10 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 10, "xp": 40},
-	{"text": "Cook 2 meat", "type": "craft", "target": "cooked_meat", "count": 2, "xp": 20},
-	{"text": "Build the house", "type": "build", "target": "house", "count": 1, "xp": 40},
-	{"text": "Harvest 1 deer antler in the east forest", "type": "collect", "target": "deer:antler", "count": 1, "xp": 60},
-	{"text": "Reach level 5", "type": "level", "target": "", "count": 5, "xp": 0},
-	{"text": "Defeat the Great Boar", "type": "boss", "target": "boar", "count": 1, "xp": 100},
-	{"text": "Cross the mountain pass", "type": "travel", "target": "mountains", "count": 1, "xp": 50},
-	{"text": "Mine 4 iron ore (bone pickaxe)", "type": "gather", "target": "iron_ore", "count": 4, "xp": 40},
-	{"text": "Build the forge", "type": "build", "target": "forge", "count": 1, "xp": 60},
-	{"text": "Reach level 10", "type": "level", "target": "", "count": 10, "xp": 0},
-	{"text": "Defeat the Great Bear", "type": "boss", "target": "bear", "count": 1, "xp": 200},
-	{"text": "Take the northern pass", "type": "travel", "target": "far_north", "count": 1, "xp": 0},
-]
+## Quest lines, one per zone, played in order (the flat list is quests()).
+## Types: "gather" (item from nodes), "hunt" (animal kills), "collect" (an
+## animal's drop, target "animal:item"), "craft" (recipe), "build" (structure,
+## optional "tier"; also counts one built earlier), "level" (reach a level),
+## "boss" (defeat a boss id), "travel" (set foot in a zone id).
+## XP is tuned so a zone's line plus its boss carries the hunter to the next
+## zone's level gate with a little hunting on the side.
+const QUEST_LINES := {
+	"meadow": [
+		{"text": "Gather 5 wood", "type": "gather", "target": "wood", "count": 5, "xp": 15},
+		{"text": "Build the crafting place", "type": "build", "target": "crafting", "count": 1, "xp": 20},
+		{"text": "Craft a wooden spear", "type": "craft", "target": "spear", "count": 1, "xp": 20},
+		{"text": "Harvest 2 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 2, "xp": 30},
+		{"text": "Build the storage", "type": "build", "target": "storage", "count": 1, "xp": 25},
+		{"text": "Gather 6 fibre from tall grass", "type": "gather", "target": "fibre", "count": 6, "xp": 15},
+		{"text": "Craft fibre wraps", "type": "craft", "target": "fibre_wraps", "count": 1, "xp": 25},
+		{"text": "Build the tanning rack", "type": "build", "target": "tanning", "count": 1, "xp": 25},
+		{"text": "Tan 1 leather", "type": "craft", "target": "leather", "count": 1, "xp": 25},
+		{"text": "Harvest 1 squirrel fur", "type": "collect", "target": "squirrel:fur", "count": 1, "xp": 20},
+		{"text": "Harvest 10 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 10, "xp": 40},
+		{"text": "Cook 2 meat", "type": "craft", "target": "cooked_meat", "count": 2, "xp": 20},
+		{"text": "Craft a fur tunic", "type": "craft", "target": "fur_tunic", "count": 1, "xp": 40},
+	],
+	"east_forest": [
+		{"text": "Enter the east forest", "type": "travel", "target": "east_forest", "count": 1, "xp": 30},
+		{"text": "Build the house", "type": "build", "target": "house", "count": 1, "xp": 60},
+		{"text": "Hunt 3 deer", "type": "hunt", "target": "deer", "count": 3, "xp": 90},
+		{"text": "Harvest 1 deer antler", "type": "collect", "target": "deer:antler", "count": 1, "xp": 60},
+		{"text": "Upgrade the crafting place to tier 2", "type": "build", "target": "crafting", "tier": 2, "count": 1, "xp": 100},
+		{"text": "Craft a bone pickaxe", "type": "craft", "target": "bone_pick", "count": 1, "xp": 120},
+		{"text": "Craft leather boots", "type": "craft", "target": "leather_boots", "count": 1, "xp": 120},
+		{"text": "Craft leather armor", "type": "craft", "target": "leather_armor", "count": 1, "xp": 150},
+		{"text": "Reach level 5", "type": "level", "target": "", "count": 5, "xp": 0},
+		{"text": "Defeat the Great Boar", "type": "boss", "target": "boar", "count": 1, "xp": 300},
+		{"text": "Upgrade the house to tier 2", "type": "build", "target": "house", "tier": 2, "count": 1, "xp": 150},
+	],
+	"mountains": [
+		{"text": "Cross the mountain pass", "type": "travel", "target": "mountains", "count": 1, "xp": 80},
+		{"text": "Mine 4 iron ore (bone pickaxe)", "type": "gather", "target": "iron_ore", "count": 4, "xp": 80},
+		{"text": "Hunt 3 wolves", "type": "hunt", "target": "wolf", "count": 3, "xp": 150},
+		{"text": "Build the forge", "type": "build", "target": "forge", "count": 1, "xp": 150},
+		{"text": "Smelt 4 iron bars", "type": "craft", "target": "iron_bar", "count": 4, "xp": 120},
+		{"text": "Upgrade the crafting place to tier 3", "type": "build", "target": "crafting", "tier": 3, "count": 1, "xp": 200},
+		{"text": "Tan 2 thick leather", "type": "craft", "target": "thick_leather", "count": 2, "xp": 120},
+		{"text": "Craft an iron axe or pickaxe", "type": "craft", "target": "iron_tool", "count": 1, "xp": 200},
+		{"text": "Reach level 10", "type": "level", "target": "", "count": 10, "xp": 0},
+		{"text": "Defeat the Great Bear", "type": "boss", "target": "bear", "count": 1, "xp": 500},
+		{"text": "Take the northern pass", "type": "travel", "target": "far_north", "count": 1, "xp": 0},
+	],
+}
+
+## Quest targets that stand for several ids ("craft an iron axe or pickaxe").
+const QUEST_GROUPS := {"iron_tool": ["iron_axe", "iron_pick"]}
+
+static var _quests_flat: Array = []
+
+
+## Every quest in zone order, as one list; Game.quest_index indexes it.
+static func quests() -> Array:
+	if _quests_flat.is_empty():
+		for z in ZONES:
+			for q in QUEST_LINES.get(z["id"], []):
+				var copy: Dictionary = q.duplicate()
+				copy["zone"] = z["id"]
+				_quests_flat.append(copy)
+	return _quests_flat
 
 # --- Shop packs (placeholder purchases) ---------------------------------------
 

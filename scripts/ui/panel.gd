@@ -360,16 +360,47 @@ func _build_house() -> void:
 			close()]])
 
 
+## The quest board: the current zone's line with done, current and upcoming
+## quests, then the lines of the zones already finished, folded to one row.
 func _build_board() -> void:
+	var all := Data.quests()
 	var q := Game.current_quest()
-	_label("Quests done: %d / %d" % [Game.quest_index, Data.QUESTS.size()])
+	_label("Quests done: %d / %d" % [Game.quest_index, all.size()])
 	if q.is_empty():
 		_label("All quests done! More come with the next zones.")
 		return
-	_separator()
-	_label(q["text"], Style.ACCENT, 26)
-	_label("Progress: %d / %d" % [Game.quest_progress_count(), q["count"]])
-	_label("Reward: %d XP" % q["xp"])
+	var line_zone: String = q["zone"]
+	for z in Data.ZONES:
+		var ids := []
+		for i in all.size():
+			if all[i]["zone"] == z["id"]:
+				ids.append(i)
+		if ids.is_empty():
+			continue
+		var done := ids.filter(func(i: int) -> bool: return i < Game.quest_index).size()
+		_separator()
+		_heading("%s · %d / %d" % [z["name"].capitalize(), done, ids.size()])
+		if z["id"] != line_zone:
+			_label("All done." if done == ids.size() else "Later.", Style.MUTED, 17)
+			continue
+		for i in ids:
+			var quest: Dictionary = all[i]
+			if i < Game.quest_index:
+				_label("✓  " + quest["text"], Style.MUTED, 18)
+			elif i == Game.quest_index:
+				var parts := _card()
+				var row: HBoxContainer = parts[1]
+				row.add_child(_icon_tile("quest", Style.ACCENT, 34))
+				var col := VBoxContainer.new()
+				col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				col.add_theme_constant_override("separation", 6)
+				row.add_child(col)
+				col.add_child(_make_label(quest["text"], Style.TEXT, 24, true))
+				col.add_child(_progress_bar(func() -> float: return float(Game.quest_progress_count()) / maxi(1, quest["count"])))
+				col.add_child(_make_label("%d / %d · reward %d XP" % [Game.quest_progress_count(), quest["count"], quest["xp"]], Style.ACCENT, 17))
+				_content.add_child(parts[0])
+			else:
+				_label("·  " + quest["text"], Color(Style.TEXT, 0.55), 18)
 	_label("Quests complete on their own as you play.", Style.MUTED, 17)
 
 

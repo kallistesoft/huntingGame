@@ -58,10 +58,16 @@ func _nearest(group_filter: Callable) -> Node3D:
 	return best
 
 
-## Walks up to a node (teleport) and presses the action button once.
+## Walks up to a node (teleport) and presses the action button once. Tries a
+## few sides of the node so a tree or a grass tuft next to it can't steal
+## the action.
 func _act_on(node: Node3D) -> void:
 	var r: float = node.get("radius") if node.get("radius") != null else 0.0
-	player.position = node.position + Vector3(r + 0.25, 0, 0)
+	for i in 8:
+		var a := i * TAU / 8.0
+		player.position = node.position + Vector3(cos(a) * (r + 0.25), 0, sin(a) * (r + 0.25))
+		if player.find_target() == node:
+			break
 	player._cooldown = 0.0
 	player.do_action()
 	await _frames(1)
@@ -216,8 +222,8 @@ func _test_panels() -> void:
 func _test_collect_quest() -> void:
 	print("Collect quest")
 	var index := -1
-	for i in Data.QUESTS.size():
-		if Data.QUESTS[i]["target"] == "rabbit:fur" and Data.QUESTS[i]["count"] == 10:
+	for i in Data.quests().size():
+		if Data.quests()[i]["target"] == "rabbit:fur" and Data.quests()[i]["count"] == 10:
 			index = i
 	Game.quest_index = index
 	Game.quest_progress = 0
@@ -230,6 +236,46 @@ func _test_collect_quest() -> void:
 	Game.on_animal_killed("rabbit")
 	check(Game.quest_index == index + 1, "quest 'Harvest 10 rabbit fur' completed")
 	Game.inventory = {}
+
+	# Build quests can ask for a tier; grouped targets accept any member.
+	var all := Data.quests()
+	for i in all.size():
+		if all[i]["type"] == "build" and all[i].get("tier", 1) == 2 and all[i]["target"] == "crafting":
+			index = i
+	var saved_tiers := Game.structures.duplicate(true)
+	Game.quest_index = index
+	Game.quest_progress = 0
+	Game.dev_set_tier("crafting", 1)
+	check(Game.quest_index == index, "tier-2 build quest waits for tier 2")
+	Game.dev_set_tier("crafting", 2)
+	check(Game.quest_index == index + 1, "tier-2 build quest completes at tier 2")
+	for i in all.size():
+		if all[i]["target"] == "iron_tool":
+			index = i
+	Game.quest_index = index
+	Game.quest_progress = 0
+	Game.quest_event("craft", "iron_pick", 1)
+	check(Game.quest_index == index + 1, "'iron axe or pickaxe' quest accepts a pickaxe")
+	Game.structures = saved_tiers
+	Game.quest_index = 0
+	Game.quest_progress = 0
+	for i in all.size(): # back to where the play-through was: after the rabbit fur quest
+		if all[i]["target"] == "rabbit:fur" and all[i]["count"] == 10:
+			Game.quest_index = i + 1
+
+	# XP arc: each zone's quests and boss should carry the hunter most of the
+	# way to the next gate; hunting covers the rest.
+	var total := 0
+	for i in Data.ZONES.size():
+		var z: Dictionary = Data.ZONES[i]
+		for quest in all:
+			if quest["zone"] == z["id"]:
+				total += quest["xp"]
+		if z["boss"] != "":
+			total += Data.BOSSES[z["boss"]]["xp"]
+		var gate: Dictionary = Data.zone(i + 1)
+		var need: int = Data.LEVEL_XP[gate["unlock"]["level"] - 1]
+		check(total >= need * 0.6, "%s: quests + boss give %d XP of the %d needed for the next gate" % [z["name"], total, need])
 
 
 func _test_levels_and_zone() -> void:
@@ -336,8 +382,8 @@ func _test_boss_and_pass() -> void:
 	check(Game.bosses_defeated.has("boar"), "Great Boar defeated")
 	check(Game.inventory.get("tusk", 0) == Data.BOSSES["boar"]["drops"]["tusk"], "boar dropped tusks")
 
-	check(not Game.zone_unlocked(mountains), "mountains still need level %d" % Data.ZONES[mountains]["unlock"]["level"])
-	Game.dev_set_level(Data.ZONES[mountains]["unlock"]["level"])
+	if not Game.zone_unlocked(mountains):
+		Game.dev_set_level(Data.ZONES[mountains]["unlock"]["level"])
 	check(Game.zone_unlocked(mountains), "level + boar open the mountains")
 	Game.cross_into(mountains)
 	check(Game.visited_zones.has("mountains") and not Game.demo_done, "crossing the pass enters the mountains, demo goes on")
@@ -402,9 +448,10 @@ func _test_zone3() -> void:
 	check(Game.has_tool("iron_axe") and not Game.has_tool("bone_axe") and Game.gather("tree", 6) == 4, "iron axe replaced the bone axe: 4 wood per hit")
 
 	var north := Data.ZONES.size()
-	Game.cross_into(north)
-	check(not Game.demo_done, "northern pass closed below level %d" % Data.NEXT_ZONE["unlock"]["level"])
-	Game.dev_set_level(Data.NEXT_ZONE["unlock"]["level"])
+	if Game.level < Data.NEXT_ZONE["unlock"]["level"]:
+		Game.cross_into(north)
+		check(not Game.demo_done, "northern pass closed below level %d" % Data.NEXT_ZONE["unlock"]["level"])
+		Game.dev_set_level(Data.NEXT_ZONE["unlock"]["level"])
 	Game.cross_into(north)
 	check(Game.demo_done, "northern pass ends the demo")
 	await _frames(2)
