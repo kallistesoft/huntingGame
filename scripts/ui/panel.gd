@@ -546,6 +546,7 @@ func _build_menu() -> void:
 	_label("Hunting Game — proof of concept v%s" % ProjectSettings.get_setting("application/config/version"))
 	_label("Move with the left side of the screen (or WASD). Tap the round button (or Space) to chop, mine, pick, drink, hunt or open a camp station. Hold it to repeat.", Style.MUTED, 18)
 	_separator()
+	_row("Sounds: %s" % ("on" if Game.sounds_on else "off"), [["Turn off" if Game.sounds_on else "Turn on", true, Game.toggle_sounds]])
 	_row("Progress is saved every few seconds.", [["Save now", true, func() -> void:
 		Game.save_game()
 		Game.notify("Saved.")]])
@@ -575,6 +576,7 @@ func _build_dev_menu() -> void:
 		levels.append(["Lv %d" % l, Game.level != l, Game.dev_set_level.bind(l)])
 	_row("Level %d" % Game.level, levels)
 	_row("Finish every running timer now.", [["Finish", true, Game.dev_finish_timers]])
+	_row("Day/night: move the clock forward.", [["+3 min", true, Game.dev_advance_time.bind(180.0)]])
 	_row("Forget which recipes you have seen (NEW badges come back).", [["Reset", true, Game.dev_reset_seen]])
 	for id in Data.BOSSES:
 		_row("%s: %s" % [Data.BOSSES[id]["name"], "defeated" if Game.bosses_defeated.has(id) else "alive"],

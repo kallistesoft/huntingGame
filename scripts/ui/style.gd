@@ -110,6 +110,8 @@ static func add_press_juice(c: Control) -> void:
 	c.resized.connect(func() -> void: c.pivot_offset = c.size / 2.0)
 	c.pivot_offset = c.size / 2.0
 	if c is BaseButton:
-		c.button_down.connect(func() -> void: c.create_tween().tween_property(c, "scale", Vector2.ONE * 0.9, 0.06))
+		c.button_down.connect(func() -> void:
+			Sfx.play("ui_tap", 0.15)
+			c.create_tween().tween_property(c, "scale", Vector2.ONE * 0.9, 0.06))
 		c.button_up.connect(func() -> void:
 			c.create_tween().tween_property(c, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))

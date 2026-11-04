@@ -23,6 +23,7 @@ func _ready() -> void:
 	await _test_hunt()
 	await _test_energy_sleep_and_ad()
 	await _test_pack_and_storage()
+	await _test_feel()
 	await _test_batch_pin_and_speed_up()
 	await _test_panels()
 	_test_collect_quest()
@@ -172,6 +173,31 @@ func _test_pack_and_storage() -> void:
 	Game.hunger = 50.0
 	Game.eat_best()
 	check(Game.hunger > 50.0, "ate meat")
+
+
+func _test_feel() -> void:
+	print("Sounds, day/night, tree fade")
+	for name in ["chop", "pick", "hit", "kill", "build_done", "craft_done", "level_up", "ui_tap", "hurt", "eat"]:
+		Sfx.play(name)
+	check(Sfx._streams.size() == 10 and not Sfx._streams.values().has(null), "all ten sounds load and play")
+	Game.toggle_sounds()
+	check(not Game.sounds_on, "sounds can be turned off")
+	Game.toggle_sounds()
+	for phase in [0.0, 0.2, 0.5, 0.75, 0.99]:
+		var look: Array = world.daylight_at(phase)
+		check(look.size() == 7 and look[0] >= 0.45 and look[3] >= 0.4, "daylight at phase %.2f keeps the world lit (sun %.2f)" % [phase, look[0]])
+	Game.time_offset = 0.0
+	Game.time_offset = world.DAY_SECONDS * 0.75 - fposmod(Game.now(), world.DAY_SECONDS)
+	await _frames(2)
+	check(absf(world.day_phase() - 0.75) < 0.01 and world.sun.light_energy < 0.7, "dev clock offset reaches midnight and dims the sun")
+	Game.time_offset = 0.0
+	var tree := _nearest(func(n: Node) -> bool: return n.get("kind") == "tree")
+	player.position = tree.position + Vector3(0.3, 0, -3.0) # tree between hunter and camera
+	await get_tree().create_timer(0.6).timeout
+	check(tree.fade_amount() > 0.4, "a tree in front of the hunter fades out")
+	player.position = tree.position + Vector3(0.3, 0, 4.0)
+	await get_tree().create_timer(0.6).timeout
+	check(tree.fade_amount() < 0.3, "it turns solid again once out of the way")
 
 
 func _test_batch_pin_and_speed_up() -> void:

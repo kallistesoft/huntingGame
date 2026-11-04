@@ -10,6 +10,7 @@ const HOUSE_SPOT := Vector2(2.75, 7.75) # house position inside the camp
 const WORLD_SEED := 7
 const CAMERA_OFFSET := Vector3(0, 13, 9) # above and behind the hunter
 const CAMERA_FOLLOW := 6.0
+const DAY_SECONDS := 720.0 # one full day/night cycle, real time
 
 const Shapes := preload("res://scripts/world/shapes.gd")
 const Fx := preload("res://scripts/world/fx.gd")
@@ -27,6 +28,9 @@ const Hud := preload("res://scripts/ui/hud.gd")
 var player: Node3D
 var hud: Control
 var camera: Camera3D
+var sun: DirectionalLight3D
+var env: Environment
+var _sky_material: ProceduralSkyMaterial
 var _rng := RandomNumberGenerator.new()
 var _shake := 0.0
 var _taken: Array[Vector3] = [] # x, z, radius of placed props, to keep them apart
@@ -115,6 +119,57 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_place_camera(minf(1.0, CAMERA_FOLLOW * delta))
+	_update_daylight()
+
+
+## Where we are in the day, 0..1: 0 dawn, 0.25 noon, 0.5 dusk, 0.75 midnight.
+## Driven by the clock (plus a dev offset) so it's the same across launches.
+func day_phase() -> float:
+	return fposmod((Game.now() + Game.time_offset) / DAY_SECONDS, 1.0)
+
+
+## Four key looks blended around the clock. Night keeps about half the
+## light with a blue tint so the game stays readable.
+const DAYLIGHT := [
+	# phase, sun energy, sun colour, ambient colour, ambient energy, sky top, sky horizon, fog
+	[0.0, 0.8, Color(1.0, 0.8, 0.6), Color(0.8, 0.7, 0.75), 0.45, Color(0.55, 0.55, 0.8), Color(0.95, 0.75, 0.6), Color(0.85, 0.7, 0.65)],   # dawn
+	[0.25, 1.25, Color(1.0, 0.95, 0.85), Color(0.72, 0.78, 0.9), 0.5, Color(0.32, 0.55, 0.85), Color(0.78, 0.86, 0.92), Color(0.72, 0.82, 0.9)], # noon
+	[0.5, 0.85, Color(1.0, 0.7, 0.5), Color(0.8, 0.65, 0.7), 0.45, Color(0.4, 0.4, 0.75), Color(0.95, 0.65, 0.5), Color(0.8, 0.62, 0.6)],     # dusk
+	[0.75, 0.55, Color(0.6, 0.7, 1.0), Color(0.45, 0.55, 0.85), 0.5, Color(0.08, 0.1, 0.25), Color(0.25, 0.3, 0.5), Color(0.3, 0.35, 0.55)],   # night
+]
+
+
+## The blended look for a phase: [sun energy, sun colour, ambient colour,
+## ambient energy, sky top, sky horizon, fog].
+static func daylight_at(phase: float) -> Array:
+	var n := DAYLIGHT.size()
+	for i in n:
+		var a: Array = DAYLIGHT[i]
+		var b: Array = DAYLIGHT[(i + 1) % n]
+		var end: float = b[0] if i + 1 < n else 1.0
+		if phase >= a[0] and phase < end:
+			var t: float = (phase - a[0]) / (end - a[0])
+			t = t * t * (3.0 - 2.0 * t) # smooth step
+			var out := []
+			for k in range(1, a.size()):
+				out.append(lerp(a[k], b[k], t))
+			return out
+	return DAYLIGHT[0].slice(1)
+
+
+func _update_daylight() -> void:
+	var phase := day_phase()
+	var look := daylight_at(phase)
+	sun.light_energy = look[0]
+	sun.light_color = look[1]
+	env.ambient_light_color = look[2]
+	env.ambient_light_energy = look[3]
+	_sky_material.sky_top_color = look[4]
+	_sky_material.sky_horizon_color = look[5]
+	env.fog_light_color = look[6]
+	# The sun crosses the sky from dawn to dusk and sits low at night.
+	var angle := -20.0 - 60.0 * sin(phase * TAU) if phase < 0.5 else -30.0
+	sun.rotation_degrees = Vector3(angle, -30 + 60 * phase, 0)
 
 
 func _place_camera(weight: float) -> void:
@@ -135,9 +190,10 @@ func _add_environment() -> void:
 	sky_material.sky_horizon_color = Color(0.78, 0.86, 0.92)
 	sky_material.ground_horizon_color = Color(0.6, 0.66, 0.6)
 	sky_material.ground_bottom_color = Color(0.25, 0.3, 0.22)
+	_sky_material = sky_material
 	var sky := Sky.new()
 	sky.sky_material = sky_material
-	var env := Environment.new()
+	env = Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -158,7 +214,7 @@ func _add_environment() -> void:
 	world_env.environment = env
 	add_child(world_env)
 
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55, -30, 0)
 	sun.light_energy = 1.25
 	sun.light_color = Color(1.0, 0.95, 0.85)
@@ -219,6 +275,7 @@ func fx_gather(node: Node3D, item: String, n: int, xp: int) -> void:
 	Fx.float_text(self, top, "+%d %s" % [n, Data.item_name(item)], Style.TEXT)
 	Fx.float_text(self, top + Vector3(0, -0.4, 0), "+%d XP" % xp, Style.XP, 0.12)
 	hud.fly_to_bag(camera.unproject_position(top), color, n)
+	Sfx.play("chop" if item in ["wood", "stone", "iron_ore", "silver_ore"] else "pick")
 	shake(0.05)
 	vibrate(15)
 
@@ -226,10 +283,12 @@ func fx_gather(node: Node3D, item: String, n: int, xp: int) -> void:
 func fx_drink(node: Node3D) -> void:
 	Fx.burst(self, Vector3(player.position.x, 0.2, player.position.z), Style.WATER, 10, 0.06, 2.0)
 	Fx.float_text(self, player.position + Vector3(0, 2.0, 0), "+Water", Style.WATER)
+	Sfx.play("eat")
 
 
 func fx_hit(node: Node3D) -> void:
 	Fx.burst(self, node.global_position + Vector3(0, 0.4, 0), Color(0.95, 0.92, 0.85), 8, 0.06, 2.0)
+	Sfx.play("hit")
 	shake(0.12)
 	vibrate(30)
 
@@ -243,6 +302,7 @@ func fx_kill(node: Node3D, kind: String) -> void:
 		hud.fly_to_bag(camera.unproject_position(top), Style.ITEM_COLORS.get(item, Color.WHITE), d["drops"][item])
 		line += 1
 	Fx.float_text(self, top + Vector3(0, -0.45, 0), "+%d XP" % Game.xp_with_boost(d["xp"]), Style.XP, 0.12 * line)
+	Sfx.play("kill")
 	shake(0.22)
 	vibrate(60)
 
@@ -251,6 +311,7 @@ func fx_built(node: Node3D, tier: int) -> void:
 	Fx.burst(self, node.global_position + Vector3(0, 1.0, 0), Style.ACCENT, 24, 0.1, 5.0)
 	Fx.burst(self, node.global_position + Vector3(0, 1.0, 0), Style.ENERGY, 16, 0.07, 4.0)
 	Fx.float_text(self, node.global_position + Vector3(0, 3.2, 0), "Tier %d!" % tier, Style.ACCENT)
+	Sfx.play("build_done", 0.0)
 	shake(0.15)
 	vibrate(40)
 
@@ -258,6 +319,7 @@ func fx_built(node: Node3D, tier: int) -> void:
 ## A new piece of equipment is worn: a burst on the hunter and its name.
 func _on_crafted(recipe_id: String) -> void:
 	var r: Dictionary = Data.RECIPES[recipe_id]
+	Sfx.play("craft_done", 0.0)
 	if not r.has("tool"):
 		return
 	Fx.burst(self, player.position + Vector3(0, 1.0, 0), Style.ACCENT, 26, 0.1, 4.5)
@@ -276,6 +338,8 @@ func fx_kill_boss(node: Node3D) -> void:
 		line += 1
 	Fx.float_text(self, top + Vector3(0, -0.45, 0), "+%d XP" % Game.xp_with_boost(b["xp"]), Style.XP, 0.12 * line)
 	Fx.burst(self, node.global_position + Vector3(0, 1.0, 0), Style.ACCENT, 40, 0.12, 6.0)
+	Sfx.play("kill", 0.0)
+	Sfx.play("level_up", 0.0)
 	shake(0.4)
 	vibrate(150)
 
