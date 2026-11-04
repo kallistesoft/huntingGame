@@ -30,6 +30,7 @@ func _ready() -> void:
 	await _test_death()
 	await _test_boss_and_pass()
 	await _test_zone3()
+	await _test_zone4()
 	await _test_gear_chain()
 	_test_save_load()
 
@@ -122,15 +123,24 @@ func _test_build_and_craft() -> void:
 
 func _test_hunt() -> void:
 	print("Hunting")
+	# Diagnostics for an intermittent failure here: every toast, and the
+	# state after each swing.
+	var on_msg := func(text: String) -> void: print("  msg  ", text)
+	Game.message.connect(on_msg)
+	print("  info weapon=%s energy=%.1f bag=%.1f/%d" % [Game.weapon(), Game.energy, Game.carry_weight(), Game.carry_limit()])
 	for i in 2:
 		var rabbit := _nearest(func(n: Node) -> bool: return n.get("kind") == "rabbit" and n.is_available() and n.zone.end.x <= Data.ZONES[0]["rect"].end.x)
+		print("  info rabbit %d: %s at %s" % [i, rabbit, Shapes.flat(rabbit) if rabbit != null else Vector2.INF])
 		var guard := 0
 		while rabbit.alive and guard < 10:
 			guard += 1
 			await _act_on(rabbit)
+			var t: Node3D = player.find_target()
+			print("  info swing %d: target=%s alive=%s hp=%d dist=%.2f energy=%.1f" % [guard, t.get("kind") if t != null else "none", rabbit.alive, rabbit.hp, Shapes.flat(player).distance_to(Shapes.flat(rabbit)), Game.energy])
 	check(Game.inventory.get("raw_meat", 0) >= 2, "2 rabbits gave meat")
 	check(Game.inventory.get("fur", 0) >= 2, "2 rabbits gave fur")
 	check(Game.quest_index == 4, "quest 'Harvest 2 rabbit fur' completed")
+	Game.message.disconnect(on_msg)
 
 
 func _test_energy_sleep_and_ad() -> void:
@@ -486,18 +496,82 @@ func _test_zone3() -> void:
 	await _finish_timers()
 	check(Game.has_tool("iron_axe") and not Game.has_tool("bone_axe") and Game.gather("tree", 6) == 4, "iron axe replaced the bone axe: 4 wood per hit")
 
-	var north := Data.ZONES.size()
-	if Game.level < Data.NEXT_ZONE["unlock"]["level"]:
+	var north := 3
+	if Game.level < Data.ZONES[north]["unlock"]["level"]:
 		Game.cross_into(north)
-		check(not Game.demo_done, "northern pass closed below level %d" % Data.NEXT_ZONE["unlock"]["level"])
-		Game.dev_set_level(Data.NEXT_ZONE["unlock"]["level"])
+		check(not Game.visited_zones.has("far_north"), "northern pass closed below level %d" % Data.ZONES[north]["unlock"]["level"])
+		Game.dev_set_level(Data.ZONES[north]["unlock"]["level"])
 	Game.cross_into(north)
-	check(Game.demo_done, "northern pass ends the demo")
+	check(Game.visited_zones.has("far_north") and not Game.demo_done, "northern pass enters the far north")
+	Game.tools.erase("iron_axe")
+	Game.tools.erase("bone_pick")
+	Game.inventory = {}
+
+
+func _test_zone4() -> void:
+	print("Zone 4: silver, ice wolves, the Great Mammoth, the sea pass")
+	Game.inventory = {}
+	Game.energy = 100.0
+	Game.tools = {"spear": true, "iron_bow": true, "bone_pick": true}
+	var rock := _nearest(func(n: Node) -> bool: return n.get("kind") == "silver_rock" and n.is_available())
+	check(rock != null, "silver rocks in the far north")
+	check(Game.gather("silver_rock", 4) == 0, "bone pickaxe can't mine silver")
+	Game.tools["iron_pick"] = true
+	check(Game.gather("silver_rock", 4) == 4, "iron pickaxe mines 4 ore per hit")
+	var fox := _nearest(func(n: Node) -> bool: return n.get("kind") == "arctic_fox" and n.is_available())
+	var elk := _nearest(func(n: Node) -> bool: return n.get("kind") == "elk" and n.is_available())
+	var wolf := _nearest(func(n: Node) -> bool: return n.get("kind") == "ice_wolf" and n.is_available())
+	check(fox != null and elk != null and wolf != null, "foxes, elk and ice wolves roam the far north")
+	Game.health = Game.max_health()
+	Game.protected_until = 0.0
+	player.position = wolf.position + Vector3(0.5, 0, 0)
+	await get_tree().create_timer(2.2).timeout
+	check(Game.health < Game.max_health() - 5.0, "an ice wolf bites the hunter")
+	player.position = Vector3(130, 0, 16)
+	await _frames(2)
+
+	var mammoth: Node3D = world.boss_node("mammoth")
+	check(mammoth != null and mammoth.alive, "the Great Mammoth waits in its lair")
+	Game.inventory = {} # room for the loot
+	var guard := 0
+	while mammoth.alive and guard < 500:
+		guard += 1
+		Game.energy = 100.0
+		Game.health = Game.max_health()
+		player.position = mammoth.position + Vector3(3.5, 0, 0)
+		player._cooldown = 0.0
+		player.do_action()
+		await _frames(3)
+	check(Game.bosses_defeated.has("mammoth"), "Great Mammoth defeated")
+	check(Game.inventory.get("mammoth_tusk", 0) == Data.BOSSES["mammoth"]["drops"]["mammoth_tusk"], "mammoth dropped tusks")
+
+	Game.dev_set_tier("house", 3)
+	Game.dev_set_tier("crafting", 4)
+	Game.dev_set_tier("forge", 2)
+	Game.storage = {"silver_ore": 10, "wood": 10, "rope": 5}
+	Game.craft_jobs = {}
+	Game.start_craft("silver_bar", 3)
+	check(Game.craft_jobs.has("forge"), "forge tier 2 smelts silver")
+	await _finish_timers()
+	Game.tools["iron_axe"] = true
+	Game.start_craft("silver_axe")
+	await _finish_timers()
+	Game.inventory = {} # room for the wood
+	check(Game.has_tool("silver_axe") and not Game.has_tool("iron_axe") and Game.gather("tree", 6) == 5, "silver axe replaced the iron axe: 5 wood per hit")
+
+	var sea := Data.ZONES.size()
+	if Game.level < Data.NEXT_ZONE["unlock"]["level"]:
+		Game.cross_into(sea)
+		check(not Game.demo_done, "sea pass closed below level %d" % Data.NEXT_ZONE["unlock"]["level"])
+		Game.dev_set_level(Data.NEXT_ZONE["unlock"]["level"])
+	Game.cross_into(sea)
+	check(Game.demo_done, "sea pass ends the demo")
 	await _frames(2)
 	check(world.hud._end_screen.visible, "end of demo screen shown")
 	world.hud._end_screen.visible = false
-	Game.tools.erase("iron_axe")
-	Game.tools.erase("bone_pick")
+	for id in ["silver_axe", "iron_pick", "bone_pick", "iron_bow"]:
+		Game.tools.erase(id)
+	Game.tools["bow"] = true
 	Game.inventory = {}
 
 
