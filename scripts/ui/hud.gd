@@ -5,6 +5,7 @@ extends Control
 ## _input so the joystick and the action button work with two fingers at once.
 
 const GamePanel := preload("res://scripts/ui/panel.gd")
+const PanelShell := preload("res://scripts/ui/panel_shell.gd") # for fmt_time
 const Style := preload("res://scripts/ui/style.gd")
 const Icons := preload("res://scripts/ui/icons.gd")
 const IconRect := preload("res://scripts/ui/icon_rect.gd")
@@ -25,6 +26,9 @@ var _boost_label: Label
 var _quest_label: Label
 var _quest_bar: ProgressBar
 var _quest_card: PanelContainer
+var _pinned_card: PanelContainer
+var _pinned_label: Label
+var _pinned_chips: HFlowContainer
 var _bag_button: Button
 var _messages: VBoxContainer
 var _prompt: PanelContainer
@@ -48,6 +52,7 @@ var _joy_pos := Vector2.ZERO
 var _act_index := -1
 var _action_icon := ""
 var _action_text := ""
+var _action_new := false # the station in front has recipes the player hasn't seen
 var _action_pulse := 0.0
 
 
@@ -146,12 +151,16 @@ func _build_stats() -> void:
 
 
 func _build_quest() -> void:
+	var column := VBoxContainer.new()
+	column.position = Vector2(14, 196)
+	column.add_theme_constant_override("separation", 8)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(column)
 	_quest_card = PanelContainer.new()
 	_quest_card.theme_type_variation = "Pill"
-	_quest_card.position = Vector2(14, 196)
 	_quest_card.custom_minimum_size = Vector2(368, 0)
 	_quest_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_quest_card)
+	column.add_child(_quest_card)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	_quest_card.add_child(row)
@@ -173,6 +182,60 @@ func _build_quest() -> void:
 	_quest_bar.show_percentage = false
 	_quest_bar.add_theme_stylebox_override("fill", Style.box(Style.ACCENT, 4, 0))
 	col.add_child(_quest_bar)
+
+	# Pinned recipe: what you still need for it, updated as you gather.
+	_pinned_card = PanelContainer.new()
+	_pinned_card.theme_type_variation = "Pill"
+	_pinned_card.custom_minimum_size = Vector2(368, 0)
+	_pinned_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pinned_card.visible = false
+	column.add_child(_pinned_card)
+	var prow := HBoxContainer.new()
+	prow.add_theme_constant_override("separation", 10)
+	_pinned_card.add_child(prow)
+	var pin := IconRect.new()
+	pin.icon = "pin"
+	pin.color = Style.ACCENT
+	pin.custom_minimum_size = Vector2(26, 26)
+	pin.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	prow.add_child(pin)
+	var pcol := VBoxContainer.new()
+	pcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pcol.add_theme_constant_override("separation", 4)
+	prow.add_child(pcol)
+	_pinned_label = Label.new()
+	_pinned_label.add_theme_font_size_override("font_size", 17)
+	pcol.add_child(_pinned_label)
+	_pinned_chips = HFlowContainer.new()
+	_pinned_chips.add_theme_constant_override("h_separation", 6)
+	_pinned_chips.add_theme_constant_override("v_separation", 4)
+	pcol.add_child(_pinned_chips)
+	Game.changed.connect(_refresh_pinned)
+	_refresh_pinned()
+
+
+## Rebuilds the pinned-recipe card: "Wood 6/6 ✓  Fur 3/4".
+func _refresh_pinned() -> void:
+	var id := Game.pinned_recipe
+	_pinned_card.visible = id != ""
+	if id == "":
+		return
+	var r: Dictionary = Data.RECIPES[id]
+	var done := true
+	for child in _pinned_chips.get_children():
+		_pinned_chips.remove_child(child)
+		child.queue_free()
+	for item in r["cost"]:
+		var have := Game.count_available(item)
+		var need: int = r["cost"][item]
+		var ok := have >= need
+		done = done and ok
+		var chip := Label.new()
+		chip.text = "%s %d/%d%s" % [Data.item_name(item), mini(have, need), need, " ✓" if ok else ""]
+		chip.add_theme_font_size_override("font_size", 15)
+		chip.add_theme_color_override("font_color", Style.GOOD if ok else Style.BAD)
+		_pinned_chips.add_child(chip)
+	_pinned_label.text = Data.recipe_name(id) + (": ready to craft!" if done else "")
 
 
 func _build_buttons() -> void:
@@ -406,7 +469,7 @@ func _process(delta: float) -> void:
 	_level_badge.queue_redraw()
 	_boost_label.visible = Game.xp_boost_left() > 0.0
 	if _boost_label.visible:
-		_boost_label.text = "×%d XP · %s" % [Data.XP_BOOST_MULT, GamePanel.fmt_time(Game.xp_boost_left())]
+		_boost_label.text = "×%d XP · %s" % [Data.XP_BOOST_MULT, PanelShell.fmt_time(Game.xp_boost_left())]
 
 	var q := Game.current_quest()
 	_quest_card.visible = not q.is_empty()
@@ -418,6 +481,8 @@ func _process(delta: float) -> void:
 	var target: Node3D = player.find_target()
 	_action_icon = target.action_icon() if target != null else ""
 	_action_text = target.action_label() if target != null else ""
+	_action_new = target != null and target.get("kind") == "crafting" and Game.structure_tier("crafting") > 0 \
+		and not Game.unseen_recipes().is_empty()
 	_action_pulse += delta * 4.0
 
 	_update_prompt()
@@ -447,13 +512,13 @@ func _update_prompt() -> void:
 	var was_visible := _prompt.visible
 	if Game.is_sleeping():
 		_prompt.visible = true
-		_prompt_label.text = "Sleeping… %s" % GamePanel.fmt_time(Game.sleep_left())
+		_prompt_label.text = "Sleeping… %s" % PanelShell.fmt_time(Game.sleep_left())
 		_prompt_sleep.visible = false
 	elif Game.energy <= 0.0:
 		_prompt.visible = true
 		_prompt_label.text = "Exhausted! You are slow and can't work or hunt."
 		_prompt_sleep.visible = true
-		_prompt_sleep.text = "Sleep %s" % GamePanel.fmt_time(Game.sleep_duration())
+		_prompt_sleep.text = "Sleep %s" % PanelShell.fmt_time(Game.sleep_duration())
 	else:
 		_prompt.visible = false
 	if _prompt.visible and not was_visible:
@@ -600,6 +665,8 @@ func _draw() -> void:
 		var pill := Rect2(c + Vector2(-w / 2.0, -r - 46), Vector2(w, 34))
 		draw_style_box(Style.box(Style.SHADE, 17, 0), pill)
 		draw_string(f, pill.position + Vector2(0, 24), _action_text, HORIZONTAL_ALIGNMENT_CENTER, w, 18, Style.TEXT)
+		if _action_new:
+			draw_circle(pill.position + Vector2(w - 2, 2), 8, Style.ACCENT)
 	else:
 		Icons.draw(self, "check", c, r * 0.5, Color(1, 1, 1, 0.25))
 

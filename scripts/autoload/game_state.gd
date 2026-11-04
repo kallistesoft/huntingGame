@@ -28,7 +28,7 @@ var inventory := {} # item id -> count, carried
 var storage := {} # item id -> count, at camp
 var tools := {} # tool id -> true
 var structures := {} # id -> {"tier", "busy_until", "next_tier"}
-var craft_job := {} # {"recipe", "done_at"} or empty
+var craft_job := {} # {"recipe", "count", "done_at"} or empty
 var sleep_until := 0.0
 var ad_day := ""
 var ads_today := 0
@@ -39,6 +39,8 @@ var boss_defeated := false
 var demo_done := false
 var player_position := Vector2.ZERO
 var has_player_position := false
+var pinned_recipe := "" # recipe followed on the HUD, or ""
+var seen_recipes := [] # recipe ids the player has seen unlocked (for the NEW badge)
 
 var _autosave_left := AUTOSAVE_SECONDS
 var _starve_warn_left := 0.0
@@ -481,6 +483,41 @@ func _on_energy_ad_done(rewarded: bool) -> void:
 	save_game()
 
 
+## Halves the time left on a build (target = structure id) or on the craft
+## job (target = "craft") after a rewarded ad. Shares the daily ad cap.
+func speed_up(target: String) -> void:
+	if AdService.is_showing():
+		return
+	if ads_left_today() <= 0:
+		notify("No more ads today. Come back tomorrow.")
+		return
+	if _time_left(target) <= 0.0:
+		return
+	AdService.show_rewarded(func(rewarded: bool) -> void:
+		if not rewarded:
+			return
+		var left := _time_left(target)
+		if left <= 0.0:
+			return
+		_roll_ad_day()
+		ads_today += 1
+		if target == "craft":
+			craft_job["done_at"] = now() + left / 2.0
+		else:
+			structures[target]["busy_until"] = now() + left / 2.0
+		notify("Time halved: %d s left." % ceili(left / 2.0))
+		changed.emit()
+		save_game())
+
+
+func _time_left(target: String) -> float:
+	if target == "craft":
+		return craft_left()
+	if structures.has(target) and structure_busy(target):
+		return maxf(0.0, structures[target]["busy_until"] - now())
+	return 0.0
+
+
 func buy_pack(id: String) -> void:
 	StoreService.purchase(id, func(ok: bool) -> void:
 		if ok:
@@ -578,12 +615,52 @@ func craft_blocker(recipe_id: String) -> String:
 	return ""
 
 
-func start_craft(recipe_id: String) -> void:
+## How many of a recipe the materials allow (1 for tools, which are made once).
+func max_craft_count(recipe_id: String) -> int:
+	var r: Dictionary = Data.RECIPES[recipe_id]
+	if r.has("tool"):
+		return 1
+	var n := 99
+	for id in r["cost"]:
+		n = mini(n, count_available(id) / int(r["cost"][id]))
+	return maxi(n, 0)
+
+
+func start_craft(recipe_id: String, count := 1) -> void:
 	if craft_blocker(recipe_id) != "":
 		return
 	var r: Dictionary = Data.RECIPES[recipe_id]
-	_pay(r["cost"])
-	craft_job = {"recipe": recipe_id, "done_at": now() + r["time"]}
+	count = clampi(count, 1, max_craft_count(recipe_id))
+	var cost := {}
+	for id in r["cost"]:
+		cost[id] = r["cost"][id] * count
+	_pay(cost)
+	craft_job = {"recipe": recipe_id, "count": count, "done_at": now() + r["time"] * count}
+	changed.emit()
+	save_game()
+
+
+func toggle_pin(recipe_id: String) -> void:
+	pinned_recipe = "" if pinned_recipe == recipe_id else recipe_id
+	changed.emit()
+	save_game()
+
+
+## Recipes unlocked at the current crafting tier, not owned, not yet seen.
+func unseen_recipes() -> Array:
+	var out := []
+	for id in Data.RECIPES:
+		var r: Dictionary = Data.RECIPES[id]
+		if r["tier"] <= structure_tier("crafting") and not (r.has("tool") and has_tool(r["tool"])) and not seen_recipes.has(id):
+			out.append(id)
+	return out
+
+
+func mark_recipes_seen() -> void:
+	var fresh := unseen_recipes()
+	if fresh.is_empty():
+		return
+	seen_recipes.append_array(fresh)
 	changed.emit()
 	save_game()
 
@@ -614,15 +691,18 @@ func _update_timers(t: float) -> void:
 
 	if not craft_job.is_empty() and t >= craft_job["done_at"]:
 		var recipe_id: String = craft_job["recipe"]
+		var count: int = craft_job.get("count", 1)
 		var r: Dictionary = Data.RECIPES[recipe_id]
 		craft_job = {}
 		if r.has("tool"):
 			tools[r["tool"]] = true
+			if pinned_recipe == recipe_id:
+				pinned_recipe = ""
 		else:
-			_add(storage, r["item"], r["count"])
-		notify("Crafted: %s%s" % [Data.recipe_name(recipe_id), "" if r.has("tool") else " (in storage)"])
-		gain_xp(Data.CRAFT_XP)
-		quest_event("craft", recipe_id, 1)
+			_add(storage, r["item"], r["count"] * count)
+		notify("Crafted: %s%s%s" % [Data.recipe_name(recipe_id), " ×%d" % count if count > 1 else "", "" if r.has("tool") else " (in storage)"])
+		gain_xp(Data.CRAFT_XP * count)
+		quest_event("craft", recipe_id, count)
 		changed.emit()
 
 
@@ -712,6 +792,8 @@ func _reset_state() -> void:
 	demo_done = false
 	player_position = Vector2.ZERO
 	has_player_position = false
+	pinned_recipe = ""
+	seen_recipes = []
 
 
 func save_game() -> void:
@@ -727,6 +809,7 @@ func save_game() -> void:
 		"xp_boost_until": xp_boost_until,
 		"boss_defeated": boss_defeated, "demo_done": demo_done,
 		"player_position": [player_position.x, player_position.y],
+		"pinned_recipe": pinned_recipe, "seen_recipes": seen_recipes,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -765,7 +848,7 @@ func load_game() -> void:
 			}
 	var job: Dictionary = data.get("craft_job", {})
 	if job.has("recipe") and Data.RECIPES.has(job["recipe"]):
-		craft_job = {"recipe": job["recipe"], "done_at": float(job.get("done_at", 0.0))}
+		craft_job = {"recipe": job["recipe"], "count": int(job.get("count", 1)), "done_at": float(job.get("done_at", 0.0))}
 	sleep_until = float(data.get("sleep_until", 0.0))
 	ad_day = str(data.get("ad_day", ""))
 	ads_today = int(data.get("ads_today", 0))
@@ -778,6 +861,17 @@ func load_game() -> void:
 	if pos.size() == 2:
 		player_position = Vector2(pos[0], pos[1])
 		has_player_position = true
+	pinned_recipe = str(data.get("pinned_recipe", ""))
+	if not Data.RECIPES.has(pinned_recipe):
+		pinned_recipe = ""
+	seen_recipes = []
+	if data.has("seen_recipes"):
+		for id in data["seen_recipes"]:
+			if Data.RECIPES.has(id):
+				seen_recipes.append(id)
+	else:
+		# Older save: don't flag everything already unlocked as new.
+		seen_recipes = unseen_recipes()
 
 
 func _int_dict(d: Dictionary) -> Dictionary:
@@ -793,3 +887,46 @@ func reset_progress() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 	_reset_state()
 	get_tree().reload_current_scene()
+
+
+# --- Dev helpers (debug builds; see the Dev section of the menu) -------------
+
+func dev_give_materials() -> void:
+	for id in Data.ITEMS:
+		_add(storage, id, 20)
+		add_to_bag(id, 5)
+	notify("Dev: materials added.")
+	changed.emit()
+
+
+func dev_set_tier(kind: String, tier: int) -> void:
+	structures[kind] = {"tier": tier, "busy_until": 0.0, "next_tier": 0}
+	_check_quest()
+	changed.emit()
+	save_game()
+
+
+func dev_set_level(target: int) -> void:
+	target = clampi(target, 1, Data.LEVEL_XP.size())
+	level = target
+	xp = Data.LEVEL_XP[target - 1]
+	leveled_up.emit(level)
+	_check_quest()
+	changed.emit()
+	save_game()
+
+
+func dev_finish_timers() -> void:
+	for id in structures:
+		if structure_busy(id):
+			structures[id]["busy_until"] = now() - 1.0
+	if not craft_job.is_empty():
+		craft_job["done_at"] = now() - 1.0
+	sleep_until = minf(sleep_until, now() - 1.0) if sleep_until > 0.0 else 0.0
+	_update_timers(now())
+	changed.emit()
+
+
+func dev_reset_seen() -> void:
+	seen_recipes = []
+	changed.emit()

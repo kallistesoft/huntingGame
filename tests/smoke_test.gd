@@ -23,6 +23,7 @@ func _ready() -> void:
 	await _test_hunt()
 	await _test_energy_sleep_and_ad()
 	await _test_pack_and_storage()
+	await _test_batch_pin_and_speed_up()
 	await _test_panels()
 	_test_collect_quest()
 	_test_levels_and_zone()
@@ -162,6 +163,38 @@ func _test_pack_and_storage() -> void:
 	Game.hunger = 50.0
 	Game.eat_best()
 	check(Game.hunger > 50.0, "ate meat")
+
+
+func _test_batch_pin_and_speed_up() -> void:
+	print("Batch crafting, pinned recipe, speed-up ad")
+	Game.storage["raw_meat"] = 6
+	Game.storage["wood"] = 30
+	Game.inventory = {}
+	check(Game.max_craft_count("cooked_meat") == 6, "can cook 6 meat at once")
+	check(Game.max_craft_count("stone_axe") == 1, "tools are crafted one at a time")
+	Game.start_craft("cooked_meat", 5)
+	check(Game.craft_job.get("count", 0) == 5 and Game.storage.get("raw_meat", 0) == 1, "batch of 5 took 5 meat")
+	var left_before := Game.craft_left()
+	var ads_before := Game.ads_left_today()
+	Game.speed_up("craft")
+	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
+	check(Game.craft_left() < left_before * 0.6, "speed-up ad halved the craft time")
+	check(Game.ads_left_today() == ads_before - 1, "speed-up used one daily ad")
+	await _finish_timers()
+	check(Game.storage.get("cooked_meat", 0) >= 5, "batch delivered 5 cooked meat to storage")
+
+	Game.toggle_pin("bow")
+	check(Game.pinned_recipe == "bow", "recipe pinned")
+	await _frames(2)
+	check(world.hud._pinned_card.visible, "pinned card shown on the HUD")
+	Game.toggle_pin("bow")
+	check(Game.pinned_recipe == "", "pin removed")
+	check(Data.sources("fur").begins_with("Fur:") and "rabbit" in Data.sources("fur"), "fur sources name rabbits")
+	check("Wait" not in Data.sources("wood") and "trees" in Data.sources("wood"), "wood comes from trees")
+	Game.seen_recipes = []
+	check(not Game.unseen_recipes().is_empty(), "unlocked recipes are new until seen")
+	Game.mark_recipes_seen()
+	check(Game.unseen_recipes().is_empty(), "recipes marked as seen")
 
 
 func _test_panels() -> void:

@@ -4,7 +4,7 @@ extends RefCounted
 
 const NAMES := [
 	"health", "energy", "food", "water", "bag", "xp", "sleep", "shop", "menu", "close",
-	"axe", "pick", "berries", "spear", "bow", "door", "build", "quest", "check",
+	"axe", "pick", "berries", "spear", "bow", "door", "build", "quest", "check", "pin",
 ]
 
 
@@ -82,6 +82,12 @@ static func draw(ci: CanvasItem, icon: String, c: Vector2, s: float, color: Colo
 				ci.draw_line(p.call(-0.4, y), p.call(0.4, y), color.darkened(0.5), w * 0.6)
 		"check":
 			ci.draw_polyline(PackedVector2Array([p.call(-0.7, 0), p.call(-0.15, 0.55), p.call(0.75, -0.55)]), color, w * 1.4)
+		"pin":
+			# Push pin: round head, a flat collar, and the needle pointing down-left.
+			ci.draw_circle(p.call(0.25, -0.45), h * 0.42, color)
+			ci.draw_line(p.call(-0.35, 0.05), p.call(0.55, -0.85), color, w * 1.1)
+			ci.draw_line(p.call(-0.55, -0.1), p.call(0.1, 0.55), color, w * 1.4)
+			ci.draw_line(p.call(-0.25, 0.25), p.call(-0.85, 0.85), color, w * 0.8)
 
 
 static func _round_rect(ci: CanvasItem, r: Rect2, radius: float, color: Color) -> void:

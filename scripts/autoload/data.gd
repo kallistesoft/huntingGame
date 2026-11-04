@@ -88,17 +88,17 @@ const RESOURCES := {
 
 const ANIMALS := {
 	"rabbit": {
-		"name": "Rabbit", "hp": 1, "size": 0.25, "color": Color(0.86, 0.82, 0.72),
+		"name": "Rabbit", "zone": "zone 1", "hp": 1, "size": 0.25, "color": Color(0.86, 0.82, 0.72),
 		"wander_speed": 1.0, "flee_speed": 3.75, "flee_radius": 3.75,
 		"xp": 5, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"squirrel": {
-		"name": "Squirrel", "hp": 1, "size": 0.18, "color": Color(0.75, 0.42, 0.18),
+		"name": "Squirrel", "zone": "zone 1", "hp": 1, "size": 0.18, "color": Color(0.75, 0.42, 0.18),
 		"wander_speed": 1.25, "flee_speed": 4.1, "flee_radius": 3.25,
 		"xp": 4, "drops": {"raw_meat": 1, "fur": 1}, "respawn": 40.0,
 	},
 	"deer": {
-		"name": "Deer", "hp": 3, "size": 0.45, "color": Color(0.6, 0.4, 0.22),
+		"name": "Deer", "zone": "east forest", "hp": 3, "size": 0.45, "color": Color(0.6, 0.4, 0.22),
 		"wander_speed": 0.9, "flee_speed": 4.4, "flee_radius": 5.0,
 		"xp": 12, "drops": {"raw_meat": 3, "fur": 2, "hide": 1, "antler": 1}, "respawn": 60.0,
 	},
@@ -236,6 +236,47 @@ func by_category(ids: Array, category_of: Callable) -> Array:
 func recipe_name(id: String) -> String:
 	var r: Dictionary = RECIPES[id]
 	return item_name(r["tool"] if r.has("tool") else r["item"])
+
+
+## Lower-case plural of a creature or resource name: "rabbits", "deer", "berry bushes".
+static func plural(name: String) -> String:
+	var n := name.to_lower()
+	if n.ends_with("deer") or n.ends_with("sheep"):
+		return n
+	if n.ends_with("y") and not n.ends_with("ey"):
+		return n.left(-1) + "ies"
+	if n.ends_with("s") or n.ends_with("sh") or n.ends_with("ch") or n.ends_with("x"):
+		return n + "es"
+	return n + "s"
+
+
+## Where an item comes from, for the "where to find" toast:
+## "Fur: rabbits, squirrels (zone 1), deer (east forest)".
+func sources(item: String) -> String:
+	var parts := []
+	for id in RESOURCES:
+		var r: Dictionary = RESOURCES[id]
+		if r["item"] == item:
+			parts.append("%s%s" % [plural(r["name"]), " (2 per hit with a %s)" % item_name(r["tool"]).to_lower() if r["tool"] != "" else ""])
+	var by_zone := {}
+	for id in ANIMALS:
+		var a: Dictionary = ANIMALS[id]
+		if a["drops"].has(item):
+			var zone: String = a.get("zone", "")
+			if not by_zone.has(zone):
+				by_zone[zone] = []
+			by_zone[zone].append(plural(a["name"]))
+	for zone in by_zone:
+		parts.append(", ".join(by_zone[zone]) + (" (%s)" % zone if zone != "" else ""))
+	if BOSS["drops"].has(item):
+		parts.append("the %s" % BOSS["name"])
+	for id in RECIPES:
+		var r: Dictionary = RECIPES[id]
+		if r.get("item", "") == item:
+			parts.append("crafted at the crafting place")
+	if parts.is_empty():
+		return "%s: no known source yet." % item_name(item)
+	return "%s: %s." % [item_name(item), ", ".join(parts)]
 
 
 func cost_text(cost: Dictionary) -> String:

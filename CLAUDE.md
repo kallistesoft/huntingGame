@@ -18,6 +18,7 @@ What the POC covers:
 - **Health and getting knocked out** (owner's rule, 2026-10-27): health 0–100, regenerates slowly while fed and watered, full after sleep. At 0 the hunter is knocked out and chooses: **watch a rewarded ad** → get back up where they fell with 50% health (2 s protection), or **give up** → wake in the house (or at camp) with full health and **lose everything in the bag**. Storage and tools are kept (owner confirmed). Damage comes from the boar and from **starvation**: food or water at 0 drains 1 health/s each (2/s if both), with a warning every few seconds. Giving up also restores food and water to at least 50%.
 - **Mountain pass** (next area gate) at the east edge: needs level 5 + the boar defeated. In the demo, crossing it shows the **End of the demo** screen ("Keep playing" returns to the game).
 - Shop with **placeholder packs** (Starter, Hunter): no real payment.
+- **Crafting/building UX (2026-11-04):** a **speed-up rewarded ad** halves the time left on a build or craft (`Game.speed_up`, shares the 10-ads-a-day cap); upgrade cards show cost chips, a "now → next" benefit line and the level needed; tapping a cost chip shows **where to find** the item (`Data.sources`); a recipe can be **pinned** to the HUD (`Game.pinned_recipe`) and its have/need updates as you gather; item recipes can be crafted **×1 / ×5 / Max** (`craft_job.count`); recipes unlocked but not yet looked at carry a **NEW** badge (`Game.seen_recipes`) and the action pill shows a dot. **Dev menu** (debug builds only, bottom of the Menu window): give materials, set tiers and level, finish timers, reset NEW badges, teleport.
 - Save to `user://save.json` every 10 s and when the app is paused/closed. Timers use real-world time, so building, crafting and sleep finish while the app is closed; hunger/thirst only drain while it's open.
 
 - Game feel: floating "+1 Wood / +2 XP" text, chips and dust bursts, items flying into the Bag button, camera shake and phone vibration on hits, buildings pop with sparks when a tier finishes, level-up banner, smooth bars, press animation on buttons. Animals are animated in code (hop, gallop, idle sniff, fall over on death).
@@ -32,7 +33,7 @@ Not done yet: real AdMob and billing plugins, release signing / Play Store bundl
 - `scripts/autoload/game_state.gd` (`Game`): player progress, survival, timers, quests, save/load. Game rules live here, not in nodes.
 - `scripts/autoload/ad_service.gd` (`AdService`), `store_service.gd` (`StoreService`): placeholders; AdMob and billing plug in here only.
 - `scripts/world/`: `main.gd` builds the world, camera and lights; `player.gd`, `animal.gd`, `boss.gd`, `pass_gate.gd`, `resource_node.gd`, `station.gd`, `ground.gd`; `shapes.gd` holds the placeholder-shape helpers.
-- `scripts/ui/`: `hud.gd` (stats, quest card, buttons, touch controls, sleep prompt, effects), `panel.gd` (station, bag, shop, menu bottom sheets), `style.gd` (palette, font, theme), `icons.gd` + `icon_rect.gd` + `icon_button.gd` (vector icons).
+- `scripts/ui/`: `hud.gd` (stats, quest and pinned-recipe cards, buttons, touch controls, sleep prompt, effects), `panel_shell.gd` (full-screen window shell + building blocks: labels, cards, chips, icon tiles, progress bars, category grids), `panel.gd` (extends the shell: station, crafting, bag, shop, menu and dev views), `style.gd` (palette, font, theme), `icons.gd` + `icon_rect.gd` + `icon_button.gd` (vector icons).
 - `scripts/world/fx.gd`: floating text and particle bursts; `main.gd` has the `fx_*` hooks, camera shake and vibration.
 - Visual previews here use Godot's OpenGL (Compatibility) renderer because the cloud has no Vulkan; the game itself uses the Mobile renderer, so check lighting on a real phone. Filmic tone-mapping looked washed out in previews, so the tone-mapper is left at Linear.
 - `tests/smoke_test.tscn`: plays the core loop and checks it.
@@ -40,7 +41,7 @@ Not done yet: real AdMob and billing plugins, release signing / Play Store bundl
 ### Running
 
 - Play: open the folder in Godot 4.7 and press F5.
-- Smoke test (headless): `godot --headless --path . res://tests/smoke_test.tscn` prints `SMOKE TEST: PASS` and exits with the number of failures. Run it after every change.
+- Smoke test (headless): `godot --headless --path . res://tests/smoke_test.tscn` prints `SMOKE TEST: PASS` and exits with the number of failures. Run it after every change. Known flake: the hunting step ("2 rabbits gave meat") occasionally fails because animals spawn at random positions; re-run before treating it as a regression.
 - Android APK: `export_presets.cfg` has an **Android** preset (package `com.kallistesoft.huntinggame`, arm64, version 0.1.0, vibrate permission, no Gradle build). In the editor: Project → Export → Android → Export Project. Headless: `godot --headless --path . --export-debug "Android" build/HuntingGame.apk` (needs Godot 4.7.1 Android export templates, an Android SDK with build-tools, a JDK, and a debug keystore set in Editor Settings → Export → Android). `build/` is git-ignored. The current APK is a **debug** build signed with a throwaway debug key: fine for sideloading, not for Google Play.
 
 ## Engine decision
@@ -103,6 +104,12 @@ Implications for the build:
 7. Save system on device.
 
 Placeholder art first; real art to be sourced later (asset packs or an artist).
+
+## Roadmap (owner, 2026-11-04)
+
+The game is a demo today but must extend quickly: **3 zones at launch, more zones by update.** Each zone is a biome with its own resources, animals, boss and one gear/tool tier (tier = zone). One home camp in zone 1, small outposts later. Hunter equipment slots head/body/feet/bag plus weapon/axe/pick; upgrades consume the previous piece; no durability. Level cap ~15 at launch; placeholder ads/IAP stay until the content is in.
+
+Steps (each shipped and tested on the phone, then committed): **1.** crafting/building UX (done) → **2.** zone framework: `Data.ZONES` drives ground, spawns, bosses, gates and outposts → **3.** material chain (fibre, rope, bone, leather, tanning rack) and gear tiers 1–2 → **4.** zone 3 (mountains, iron, wolves, Great Bear) and tier 3 → **5.** visible building tiers and gear on the hunter → **6.** per-zone quest lines, 15 levels, balance. Deferred: craft queue, one builder + paid second slot, idle producers, notifications, real AdMob/billing.
 
 ## Open questions
 

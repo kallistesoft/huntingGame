@@ -1,13 +1,7 @@
-extends Control
-## Full-screen window for camp stations, the bag, the shop and the menu. Its
-## content is rebuilt whenever the game state changes; timer lines tick every
-## frame. Item lists are grouped under category headings in a two-column grid.
-
-const Style := preload("res://scripts/ui/style.gd")
-const IconButton := preload("res://scripts/ui/icon_button.gd")
-const IconRect := preload("res://scripts/ui/icon_rect.gd")
-const GRID_COLUMNS := 2
-const SCROLL_DEADZONE := 14
+extends "res://scripts/ui/panel_shell.gd"
+## The window's views: camp stations (build/upgrade, crafting, storage,
+## house, quest board), the bag, the shop and the menu. The shell and the
+## building blocks are in panel_shell.gd.
 
 ## Icon and colour of each recipe's tile in the crafting window.
 const RECIPE_LOOKS := {
@@ -21,286 +15,24 @@ const RECIPE_LOOKS := {
 ## Order of recipe states in a category: what you can craft now comes first.
 const RECIPE_STATE_ORDER := ["ready", "busy", "missing", "locked", "owned"]
 
-var _dim: ColorRect
-var _sheet: PanelContainer
-var _title: Label
-var _scroll: ScrollContainer
-var _content: VBoxContainer
-var _grid: GridContainer # current category grid that rows go into, or null
-var _builder := Callable()
-var _live: Array = [] # [Label, Callable returning String]
-var _live_bars: Array = [] # [ProgressBar, Callable returning 0..1]
-var _rebuild_queued := false
+var _station_kind := ""
 var _confirm_reset := false
-var _ignore_tap := false # the current touch scrolled the list or opened the window
 
 
-func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	visible = false
-
-	_dim = ColorRect.new()
-	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_dim.color = Color(0, 0, 0, 0.5)
-	_dim.gui_input.connect(func(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.pressed:
-			close())
-	add_child(_dim)
-
-	# Full-screen sheet that slides up.
-	_sheet = PanelContainer.new()
-	_sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var sheet_box := Style.box(Style.BG, 0, 20)
-	sheet_box.content_margin_left = 48 # clear of the camera cutout and rounded screen corners
-	sheet_box.content_margin_right = 48
-	_sheet.add_theme_stylebox_override("panel", sheet_box)
-	add_child(_sheet)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
-	_sheet.add_child(vbox)
-
-	var header := HBoxContainer.new()
-	vbox.add_child(header)
-	_title = Label.new()
-	_title.add_theme_font_override("font", Style.font_bold())
-	_title.add_theme_font_size_override("font_size", 30)
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(_title)
-	var close_button := IconButton.new()
-	close_button.icon_name = "close"
-	close_button.custom_minimum_size = Vector2(60, 60)
-	close_button.pressed.connect(close)
-	header.add_child(close_button)
-
-	_scroll = ScrollContainer.new()
-	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.scroll_deadzone = SCROLL_DEADZONE
-	_scroll.scroll_started.connect(func() -> void: _ignore_tap = true)
-	vbox.add_child(_scroll)
-	_content = VBoxContainer.new()
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.mouse_filter = Control.MOUSE_FILTER_PASS
-	_content.add_theme_constant_override("separation", 10)
-	_scroll.add_child(_content)
-
-	Game.changed.connect(_queue_rebuild)
-
-
-func _input(event: InputEvent) -> void:
-	# Touch only: the mouse press emulated from a touch arrives after it and
-	# must not clear the flag that open() set.
-	if visible and event is InputEventScreenTouch and event.pressed:
-		_ignore_tap = false
-
-
-func _process(_delta: float) -> void:
-	for pair in _live:
-		pair[0].text = pair[1].call()
-	for pair in _live_bars:
-		pair[0].value = pair[1].call()
-
-
-func open(title: String, builder: Callable) -> void:
-	_title.text = title
-	_builder = builder
+func _on_open() -> void:
 	_confirm_reset = false
-	var was_open := visible
-	visible = true
-	# The touch that opened the window (the action button) must not press the
-	# button that now sits under the finger.
-	_ignore_tap = true
-	_scroll.scroll_vertical = 0
-	_rebuild()
-	if not was_open:
-		_sheet.position.y = size.y
-		_dim.modulate.a = 0.0
-		var t := create_tween().set_parallel()
-		t.tween_property(_sheet, "position:y", 0.0, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		t.tween_property(_dim, "modulate:a", 1.0, 0.25)
 
 
-func close() -> void:
-	if not visible:
-		return
-	_builder = Callable()
-	var t := create_tween().set_parallel()
-	t.tween_property(_sheet, "position:y", size.y, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	t.tween_property(_dim, "modulate:a", 0.0, 0.2)
-	t.chain().tween_callback(func() -> void:
-		visible = false
-		_sheet.position.y = 0.0)
-
-
-func _queue_rebuild() -> void:
-	# Deferred so a button can safely trigger a rebuild that removes it.
-	if visible and not _rebuild_queued:
-		_rebuild_queued = true
-		_rebuild.call_deferred()
-
-
-func _rebuild() -> void:
-	_rebuild_queued = false
-	if not visible or not _builder.is_valid():
-		return
-	for child in _content.get_children():
-		_content.remove_child(child)
-		child.queue_free()
-	_live.clear()
-	_live_bars.clear()
-	_grid = null
-	var keep := _scroll.scroll_vertical
-	_builder.call()
-	# The new content is sized next frame; restore the scroll then so a tap
-	# on a row does not jump the list back to the top.
-	await get_tree().process_frame
-	_scroll.scroll_vertical = keep
-
-
-# --- Building blocks ---------------------------------------------------------
-
-func _label(text: String, color := Style.TEXT, font_size := 20) -> Label:
-	_grid = null
-	var l := _make_label(text, color, font_size)
-	_content.add_child(l)
-	return l
-
-
-func _make_label(text: String, color := Style.TEXT, font_size := 20, bold := false) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_font_size_override("font_size", font_size)
-	if bold:
-		l.add_theme_font_override("font", Style.font_bold())
-	return l
-
-
-func _live_label(text_fn: Callable, color := Style.ACCENT) -> void:
-	_live.append([_label(text_fn.call(), color), text_fn])
-
-
-## A card: a title line, optional detail lines, and buttons on the right.
-## Each button is [text, enabled, callable]; the first one is the primary action.
-func _row(text: String, buttons: Array) -> void:
-	var card := PanelContainer.new()
-	card.theme_type_variation = "Card"
-	card.mouse_filter = Control.MOUSE_FILTER_PASS # let drags reach the scroll
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	card.add_child(row)
-	var lines := text.split("\n")
-	var col := VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 2)
-	row.add_child(col)
-	for i in lines.size():
-		var l := Label.new()
-		l.text = lines[i]
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		if i == 0:
-			l.add_theme_font_override("font", Style.font_bold())
-		else:
-			l.add_theme_font_size_override("font_size", 17)
-			l.add_theme_color_override("font_color", Style.MUTED)
-		col.add_child(l)
-	for i in buttons.size():
-		var b: Array = buttons[i]
-		row.add_child(_button(b[0], b[1], b[2], i == 0))
-	_place(card)
-
-
-func _button(text: String, enabled: bool, action: Callable, primary: bool) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.disabled = not enabled
-	button.custom_minimum_size = Vector2(130, 58)
-	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	if primary:
-		button.theme_type_variation = "PrimaryButton"
-	button.mouse_filter = Control.MOUSE_FILTER_PASS
-	button.pressed.connect(func() -> void:
-		if not _ignore_tap:
-			action.call())
-	Style.add_press_juice(button)
-	return button
-
-
-## Adds a card to the current category grid, or to the page.
-func _place(card: Control) -> void:
-	if _grid != null:
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_grid.add_child(card)
-	else:
-		_content.add_child(card)
-
-
-## An empty card with a row inside; returns [card, row].
-func _card() -> Array:
-	var card := PanelContainer.new()
-	card.theme_type_variation = "Card"
-	card.mouse_filter = Control.MOUSE_FILTER_PASS
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	card.add_child(row)
-	return [card, row]
-
-
-## A rounded square with an icon, tinted with the icon's colour.
-func _icon_tile(icon: String, color: Color, icon_size := 46.0) -> Control:
-	var tile := PanelContainer.new()
-	tile.add_theme_stylebox_override("panel", Style.box(Color(color, 0.16), 16, 10))
-	tile.mouse_filter = Control.MOUSE_FILTER_PASS
-	tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var ic := IconRect.new()
-	ic.icon = icon
-	ic.color = color
-	ic.custom_minimum_size = Vector2(icon_size, icon_size)
-	tile.add_child(ic)
-	return tile
-
-
-func _separator() -> void:
-	_grid = null
-	_content.add_child(HSeparator.new())
-
-
-func _heading(text: String) -> void:
-	_label(text, Style.ACCENT, 24).add_theme_font_override("font", Style.font_bold())
-
-
-## A category heading; the rows after it go into a grid under it.
-func _section(category: String) -> void:
-	_heading(Data.CATEGORIES[category])
-	_grid = GridContainer.new()
-	_grid.columns = GRID_COLUMNS
-	_grid.mouse_filter = Control.MOUSE_FILTER_PASS
-	_grid.add_theme_constant_override("h_separation", 10)
-	_grid.add_theme_constant_override("v_separation", 10)
-	_content.add_child(_grid)
-
-
-static func fmt_time(seconds: float) -> String:
-	var s := ceili(seconds)
-	return "%d:%02d" % [s / 60, s % 60]
-
-
-func _cost_have(cost: Dictionary) -> String:
-	var parts := []
-	for id in cost:
-		parts.append("%s %d/%d" % [Data.item_name(id), Game.count_available(id), cost[id]])
-	return ", ".join(parts)
-
-
-func _noop() -> void:
-	pass
+func _on_close() -> void:
+	if _station_kind == "crafting":
+		Game.mark_recipes_seen()
+	_station_kind = ""
 
 
 # --- Camp stations -----------------------------------------------------------
 
 func open_station(kind: String) -> void:
+	_station_kind = kind
 	var title: String = "Quest board" if kind == "board" else Data.STRUCTURES[kind]["name"]
 	open(title, _build_station.bind(kind))
 
@@ -326,40 +58,64 @@ func _build_station(kind: String) -> void:
 		"house": _build_house()
 
 
+## The build/upgrade block of a station: what the next tier gives, what it
+## costs, and a progress card with a speed-up while it is being built.
 func _build_upgrade(kind: String) -> void:
 	var tiers: Array = Data.STRUCTURES[kind]["tiers"]
 	var tier := Game.structure_tier(kind)
-	_label("Tier %d of %d" % [tier, tiers.size()] if tier > 0 else "Not built yet")
-	_label(_station_effects(kind, tier), Style.MUTED, 18)
+	_label("Tier %d of %d" % [tier, tiers.size()] if tier > 0 else "Not built yet", Style.MUTED, 18)
 
 	if Game.structure_busy(kind):
 		var next_tier: int = Game.structures[kind]["next_tier"]
-		_live_label(func() -> String:
-			return "Building tier %d… %s left" % [next_tier, fmt_time(Game.structures[kind]["busy_until"] - Game.now())])
-	elif tier < tiers.size():
-		var next: Dictionary = tiers[tier]
-		var blocker := Game.build_blocker(kind)
-		var verb := "Build" if tier == 0 else "Upgrade"
-		_row("%s to tier %d\nCost: %s\nTime %s · needs level %d" % [verb, tier + 1, _cost_have(next["cost"]), fmt_time(next["time"]), next["level"]],
-			[[verb, blocker == "", Game.start_build.bind(kind)]])
-		if blocker != "":
-			_label(blocker, Style.BAD, 18)
-	else:
-		_label("Fully upgraded.")
+		var total: float = tiers[next_tier - 1]["time"]
+		_timer_card("build", Style.ACCENT, "Building tier %d" % next_tier,
+			func() -> float: return Game.structures[kind]["busy_until"] - Game.now(), total, kind)
+		return
+	if tier >= tiers.size():
+		_label("Fully upgraded. " + _tier_benefit(kind, tier))
+		return
+
+	var next: Dictionary = tiers[tier]
+	var blocker := Game.build_blocker(kind)
+	var verb := "Build" if tier == 0 else "Upgrade"
+	var parts := _card()
+	var row: HBoxContainer = parts[1]
+	var tile := _icon_tile("build", Style.ACCENT)
+	tile.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(tile)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 6)
+	row.add_child(col)
+	col.add_child(_make_label("%s to tier %d" % [verb, tier + 1], Style.TEXT, 22, true))
+	col.add_child(_make_label(_tier_benefit(kind, tier), Style.MUTED, 17))
+	var chips := _cost_chips(next["cost"], next["time"])
+	chips.add_child(_chip("Level %d" % next["level"], Style.GOOD if Game.level >= next["level"] else Style.BAD))
+	col.add_child(chips)
+	if blocker != "":
+		var missing := missing_text(next["cost"])
+		col.add_child(_make_label(missing if blocker == "Missing materials" and missing != "" else blocker, Style.BAD, 17))
+	row.add_child(_button(verb, blocker == "", Game.start_build.bind(kind), true))
+	_place(parts[0])
 	_label("Materials are taken from storage first, then from your bag.", Style.MUTED, 17)
 
 
-func _station_effects(kind: String, tier: int) -> String:
+## What the next tier of a station gives, as "now → next" where possible.
+func _tier_benefit(kind: String, tier: int) -> String:
 	var tiers: Array = Data.STRUCTURES[kind]["tiers"]
 	var next: Dictionary = tiers[tier] if tier < tiers.size() else {}
 	match kind:
 		"storage":
-			var text := "Holds %d kg." % Game.storage_capacity() if tier > 0 else "Empty your bag here."
-			return text + (" Next tier: %d kg." % next["capacity"] if not next.is_empty() else "")
+			if next.is_empty():
+				return "Holds %d kg." % Game.storage_capacity()
+			return "Holds %d kg → %d kg" % [Game.storage_capacity(), next["capacity"]] if tier > 0 \
+				else "Empty your bag here. Holds %d kg." % next["capacity"]
 		"house":
-			var text := "Sleep %ds, max energy %d." % [Game.sleep_duration(), Game.max_energy()] if tier > 0 \
-				else "Sleeping outside takes %ds. A house is faster." % Data.NO_HOUSE_SLEEP_TIME
-			return text + (" Next tier: sleep %ds, max energy %d." % [next["sleep_time"], next["max_energy"]] if not next.is_empty() else "")
+			if next.is_empty():
+				return "Sleep %d s, max energy %d." % [Game.sleep_duration(), Game.max_energy()]
+			if tier == 0:
+				return "Sleep %d s instead of %d s outside · max energy %d" % [next["sleep_time"], Data.NO_HOUSE_SLEEP_TIME, next["max_energy"]]
+			return "Sleep %d s → %d s · max energy %d → %d" % [Game.sleep_duration(), next["sleep_time"], Game.max_energy(), next["max_energy"]]
 		_:
 			if next.is_empty():
 				return "All recipes unlocked."
@@ -367,8 +123,32 @@ func _station_effects(kind: String, tier: int) -> String:
 			for id in Data.RECIPES:
 				if Data.RECIPES[id]["tier"] == tier + 1:
 					unlocks.append(Data.recipe_name(id))
-			return "Tier %d unlocks: %s." % [tier + 1, ", ".join(unlocks)] if not unlocks.is_empty() \
-				else "Better tiers unlock better recipes."
+			return "Unlocks: %s" % ", ".join(unlocks) if not unlocks.is_empty() else "Better tiers unlock better recipes."
+
+
+## A progress card: icon, title, bar, time left and a speed-up (ad) button.
+## target is what Game.speed_up acts on (a structure id or "craft").
+func _timer_card(icon: String, color: Color, title: String, left_fn: Callable, total: float, target: String) -> void:
+	var parts := _card()
+	var row: HBoxContainer = parts[1]
+	row.add_child(_icon_tile(icon, color, 34))
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 8)
+	row.add_child(col)
+	col.add_child(_make_label(title, Style.TEXT, 22, true))
+	col.add_child(_progress_bar(func() -> float: return 1.0 - clampf(left_fn.call() / total, 0.0, 1.0)))
+	var text_fn := func() -> String: return "%s left" % fmt_time(maxf(0.0, left_fn.call()))
+	var left := _make_label(text_fn.call(), Style.ACCENT, 20, true)
+	left.autowrap_mode = TextServer.AUTOWRAP_OFF
+	left.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(left)
+	_live.append([left, text_fn])
+	var ads := Game.ads_left_today()
+	var speed := _button("½ time · ad (%d)" % ads, ads > 0, Game.speed_up.bind(target), true)
+	speed.custom_minimum_size.x = 190
+	row.add_child(speed)
+	_content.add_child(parts[0])
 
 
 func _build_crafting() -> void:
@@ -383,46 +163,27 @@ func _build_crafting() -> void:
 		_section(group[0])
 		for id in group[1]:
 			_recipe_card(id)
-	_label("Tools are equipped when done. Other crafts go to storage.", Style.MUTED, 17)
+	_label("Tools are equipped when done. Other crafts go to storage. Tap a cost to see where to find it; pin a recipe to follow it on screen.", Style.MUTED, 17)
 
 
 ## The card at the top: what is being crafted and how long is left.
 func _craft_status() -> void:
-	var parts := _card()
-	var row: HBoxContainer = parts[1]
 	if Game.craft_job.is_empty():
+		var parts := _card()
+		var row: HBoxContainer = parts[1]
 		row.add_child(_icon_tile("build", Style.MUTED, 34))
 		var idle := _make_label("Nothing crafting. Pick a recipe below.", Style.MUTED, 20)
 		idle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		idle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(idle)
-	else:
-		var id: String = Game.craft_job["recipe"]
-		var look: Array = RECIPE_LOOKS.get(id, ["build", Style.TEXT])
-		var total: float = Data.RECIPES[id]["time"]
-		row.add_child(_icon_tile(look[0], look[1], 34))
-		var col := VBoxContainer.new()
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		col.add_theme_constant_override("separation", 8)
-		row.add_child(col)
-		col.add_child(_make_label("Crafting %s" % Data.recipe_name(id), Style.TEXT, 22, true))
-		var bar := ProgressBar.new()
-		bar.max_value = 1.0
-		bar.step = 0.0
-		bar.show_percentage = false
-		bar.custom_minimum_size = Vector2(0, 12)
-		bar.add_theme_stylebox_override("fill", Style.box(Style.ACCENT, 6, 0))
-		col.add_child(bar)
-		var progress := func() -> float: return 1.0 - Game.craft_left() / total
-		bar.value = progress.call()
-		_live_bars.append([bar, progress])
-		var left_fn := func() -> String: return "%s left" % fmt_time(Game.craft_left())
-		var left := _make_label(left_fn.call(), Style.ACCENT, 20, true)
-		left.autowrap_mode = TextServer.AUTOWRAP_OFF
-		left.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(left)
-		_live.append([left, left_fn])
-	_content.add_child(parts[0])
+		_content.add_child(parts[0])
+		return
+	var id: String = Game.craft_job["recipe"]
+	var count: int = Game.craft_job.get("count", 1)
+	var look: Array = RECIPE_LOOKS.get(id, ["build", Style.TEXT])
+	var total: float = Data.RECIPES[id]["time"] * count
+	var title := "Crafting %s" % Data.recipe_name(id) + (" ×%d" % count if count > 1 else "")
+	_timer_card(look[0], look[1], title, Game.craft_left, total, "craft")
 
 
 ## "ready", "busy" (another craft is running), "missing" (materials),
@@ -472,29 +233,31 @@ func _recipe_card(id: String) -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 6)
 	row.add_child(col)
-	col.add_child(_make_label(Data.recipe_name(id), Style.TEXT, 22, true))
+	var title := HBoxContainer.new()
+	title.add_theme_constant_override("separation", 8)
+	col.add_child(title)
+	var name_label := _make_label(Data.recipe_name(id), Style.TEXT, 22, true)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_child(name_label)
+	if id in Game.unseen_recipes():
+		var tag := _chip("NEW", Style.ACCENT, "", Callable(), true)
+		tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		title.add_child(tag)
+	if state != "owned":
+		var pinned := Game.pinned_recipe == id
+		var pin := _small_icon_button("pin", Style.ACCENT if pinned else Color(Style.TEXT, 0.45), Game.toggle_pin.bind(id))
+		pin.custom_minimum_size = Vector2(44, 44)
+		pin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		title.add_child(pin)
 	var effect := _recipe_effect(id)
 	if effect != "":
 		col.add_child(_make_label(effect, Style.MUTED, 17))
 
 	if state != "owned":
-		var chips := HFlowContainer.new()
-		chips.mouse_filter = Control.MOUSE_FILTER_PASS
-		chips.add_theme_constant_override("h_separation", 6)
-		chips.add_theme_constant_override("v_separation", 6)
-		for item in r["cost"]:
-			chips.add_child(_cost_chip(item, r["cost"][item]))
-		chips.add_child(_chip(fmt_time(r["time"]), Style.MUTED))
-		col.add_child(chips)
-
+		col.add_child(_cost_chips(r["cost"], r["time"]))
 	match state:
 		"missing":
-			var need := []
-			for item in r["cost"]:
-				var short: int = r["cost"][item] - Game.count_available(item)
-				if short > 0:
-					need.append("%d more %s" % [short, Data.item_name(item).to_lower()])
-			col.add_child(_make_label("Need " + ", ".join(need), Style.BAD, 17))
+			col.add_child(_make_label(missing_text(r["cost"]), Style.BAD, 17))
 		"locked":
 			col.add_child(_make_label("Unlocks at crafting place tier %d" % r["tier"], Style.MUTED, 17))
 			card.modulate.a = 0.55
@@ -515,37 +278,23 @@ func _recipe_card(id: String) -> void:
 		owned.autowrap_mode = TextServer.AUTOWRAP_OFF
 		badge.add_child(owned)
 		row.add_child(badge)
+		_place(card)
+		return
+
+	# Craft (×1 / ×5 / Max for items you can make several of).
+	var max_count := Game.max_craft_count(id)
+	if r.has("item") and max_count > 1:
+		var stack := VBoxContainer.new()
+		stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		stack.add_theme_constant_override("separation", 6)
+		row.add_child(stack)
+		stack.add_child(_button("Craft", state == "ready", Game.start_craft.bind(id, 1), true, 48))
+		if max_count >= 5:
+			stack.add_child(_button("×5", state == "ready", Game.start_craft.bind(id, 5), false, 44))
+		stack.add_child(_button("Max ×%d" % max_count, state == "ready", Game.start_craft.bind(id, max_count), false, 44))
 	else:
-		row.add_child(_button("Craft", state == "ready", Game.start_craft.bind(id), true))
+		row.add_child(_button("Craft", state == "ready", Game.start_craft.bind(id, 1), true))
 	_place(card)
-
-
-## Small rounded tag for a cost or a duration, with an optional muted note.
-func _chip(text: String, color: Color, note := "") -> PanelContainer:
-	var chip := PanelContainer.new()
-	var box := Style.box(Color(0, 0, 0, 0.22), 12, 4)
-	box.content_margin_left = 10
-	box.content_margin_right = 10
-	chip.add_theme_stylebox_override("panel", box)
-	chip.mouse_filter = Control.MOUSE_FILTER_PASS
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	chip.add_child(row)
-	var l := _make_label(text, color, 17, true)
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
-	row.add_child(l)
-	if note != "":
-		var n := _make_label(note, Style.MUTED, 17)
-		n.autowrap_mode = TextServer.AUTOWRAP_OFF
-		n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(n)
-	return chip
-
-
-## "2 Wood" in green when you have enough, red when you don't, with how many you have.
-func _cost_chip(item: String, need: int) -> PanelContainer:
-	var have := Game.count_available(item)
-	return _chip("%d %s" % [need, Data.item_name(item)], Style.GOOD if have >= need else Style.BAD, "have %d" % have)
 
 
 func _build_storage() -> void:
@@ -651,3 +400,38 @@ func _build_menu() -> void:
 			else:
 				_confirm_reset = true
 				_rebuild()]])
+	if OS.is_debug_build():
+		_build_dev_menu()
+
+
+## Test helpers, debug builds only: skip the grind when checking a feature.
+func _build_dev_menu() -> void:
+	_separator()
+	_heading("Dev (debug build)")
+	_row("Materials: +20 of every item into storage and 5 into the bag.", [["Give", true, Game.dev_give_materials]])
+	for kind in Data.STRUCTURES:
+		var buttons := []
+		for t in range(0, Data.STRUCTURES[kind]["tiers"].size() + 1):
+			buttons.append(["T%d" % t, Game.structure_tier(kind) != t, Game.dev_set_tier.bind(kind, t)])
+		_row("%s: tier %d" % [Data.STRUCTURES[kind]["name"], Game.structure_tier(kind)], buttons)
+	var levels := []
+	for l in [1, 3, 5, Data.LEVEL_XP.size()]:
+		levels.append(["Lv %d" % l, Game.level != l, Game.dev_set_level.bind(l)])
+	_row("Level %d" % Game.level, levels)
+	_row("Finish every running timer now.", [["Finish", true, Game.dev_finish_timers]])
+	_row("Forget which recipes you have seen (NEW badges come back).", [["Reset", true, Game.dev_reset_seen]])
+	var world: Node3D = get_parent().player.get_parent() if get_parent().get("player") != null else null
+	if world != null:
+		_row("Teleport", [
+			["Camp", true, func() -> void:
+				_teleport(world, world.CAMP.get_center())],
+			["East forest", true, func() -> void:
+				_teleport(world, world.ZONE2.get_center())],
+			["Boar lair", true, func() -> void:
+				_teleport(world, Data.BOSS["lair"] + Vector2(-6, 0))]])
+
+
+func _teleport(world: Node3D, to: Vector2) -> void:
+	world.player.position = Vector3(to.x, 0, to.y)
+	world.camera.position = world.player.position + world.CAMERA_OFFSET
+	close()

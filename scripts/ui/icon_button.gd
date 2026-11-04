@@ -10,7 +10,8 @@ var icon_color := Color.WHITE
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(74, 74)
+	if custom_minimum_size == Vector2.ZERO:
+		custom_minimum_size = Vector2(74, 74)
 	var round := Style.box(Style.SHADE, 37, 0)
 	add_theme_stylebox_override("normal", round)
 	add_theme_stylebox_override("hover", Style.box(Color(Style.SHADE, 0.55), 37, 0))
