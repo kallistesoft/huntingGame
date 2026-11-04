@@ -864,6 +864,7 @@ func quest_progress_count() -> int:
 		return 0
 	match q["type"]:
 		"build": return 1 if structure_tier(q["target"]) >= q.get("tier", 1) else 0
+		"travel": return 1 if visited_zones.has(q["target"]) or (demo_done and q["target"] == Data.NEXT_ZONE["id"]) else 0
 		"level": return level
 		"boss": return 1 if bosses_defeated.has(q["target"]) else 0
 	return quest_progress
@@ -1012,6 +1013,7 @@ func load_game() -> void:
 	pinned_recipe = str(data.get("pinned_recipe", ""))
 	if not Data.RECIPES.has(pinned_recipe):
 		pinned_recipe = ""
+	_check_quest() # quests judged on state (build, boss, travel) may already be done
 	seen_recipes = []
 	if data.has("seen_recipes"):
 		for id in data["seen_recipes"]:

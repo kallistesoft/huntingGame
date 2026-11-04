@@ -256,6 +256,15 @@ func _test_collect_quest() -> void:
 	Game.quest_progress = 0
 	Game.quest_event("craft", "iron_pick", 1)
 	check(Game.quest_index == index + 1, "'iron axe or pickaxe' quest accepts a pickaxe")
+	# A zone visited before its "enter" quest came up still counts.
+	for i in all.size():
+		if all[i]["type"] == "travel" and all[i]["target"] == "east_forest":
+			index = i
+	Game.quest_index = index - 1
+	Game.quest_progress = 0
+	Game.visited_zones = ["meadow", "east_forest"]
+	Game.quest_event(all[index - 1]["type"], all[index - 1]["target"], all[index - 1]["count"])
+	check(Game.quest_index == index + 1, "'Enter the east forest' completes when the forest was visited earlier")
 	Game.structures = saved_tiers
 	Game.quest_index = 0
 	Game.quest_progress = 0
