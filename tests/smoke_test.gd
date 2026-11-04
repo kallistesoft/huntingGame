@@ -135,7 +135,7 @@ func _test_hunt() -> void:
 		while rabbit.alive and guard < 10:
 			guard += 1
 			await _act_on(rabbit)
-			var t := player.find_target()
+			var t: Node3D = player.find_target()
 			print("  info swing %d: target=%s alive=%s hp=%d dist=%.2f energy=%.1f" % [guard, t.get("kind") if t != null else "none", rabbit.alive, rabbit.hp, Shapes.flat(player).distance_to(Shapes.flat(rabbit)), Game.energy])
 	check(Game.inventory.get("raw_meat", 0) >= 2, "2 rabbits gave meat")
 	check(Game.inventory.get("fur", 0) >= 2, "2 rabbits gave fur")
