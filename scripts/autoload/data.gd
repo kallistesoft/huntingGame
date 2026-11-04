@@ -33,7 +33,7 @@ const ADS_PER_DAY := 10
 # --- Progression -------------------------------------------------------------
 
 ## Total XP needed to reach level (index + 1). Level 1 starts at 0 XP.
-const LEVEL_XP := [0, 50, 150, 300, 500, 750, 1050, 1400, 1800, 2250, 2750, 3300, 3900, 4550, 5250]
+const LEVEL_XP := [0, 50, 150, 300, 500, 750, 1050, 1400, 1800, 2250, 2750, 3300, 3900, 4550, 5250, 6000, 6800, 7650, 8550, 9500]
 
 # --- Zones -------------------------------------------------------------------
 
@@ -75,15 +75,25 @@ const ZONES := [
 		"animals": {"snow_hare": 5, "goat": 4, "wolf": 3},
 		"ponds": [Vector2(104, 7)], "boss": "bear", "outpost": Vector2(89.5, 17),
 	},
+	{
+		"id": "far_north", "name": "the far north", "label": "FAR NORTH",
+		"rect": Rect2(125, 0, 40, 32.5),
+		"ground": Color(0.76, 0.79, 0.83), "grass": Color(0.66, 0.72, 0.8), "grass_count": 400, "flowers": 0,
+		"unlock": {"level": 13, "boss": "bear"},
+		"entry": {"kind": "pass", "name": "Northern pass", "position": Vector2(123.5, 25), "facing": -90},
+		"resources": {"tree": 10, "rock": 8, "silver_rock": 10, "herb": 5, "grass": 3},
+		"animals": {"arctic_fox": 5, "elk": 4, "ice_wolf": 3},
+		"ponds": [Vector2(144, 8)], "boss": "mammoth", "outpost": Vector2(129.5, 17),
+	},
 ]
 
 ## The zone after the last one: not built yet. Its gate stands at the end of
 ## the last zone; crossing it ends the demo. When the zone is added to ZONES,
 ## move this gate into its "entry" and point NEXT_ZONE at the one after.
 const NEXT_ZONE := {
-	"id": "far_north", "name": "the far north",
-	"unlock": {"level": 13, "boss": "bear"},
-	"entry": {"kind": "pass", "name": "Northern pass", "position": Vector2(123.5, 25), "facing": -90},
+	"id": "frozen_sea", "name": "the frozen sea",
+	"unlock": {"level": 18, "boss": "mammoth"},
+	"entry": {"kind": "pass", "name": "Sea pass", "position": Vector2(163.5, 25), "facing": -90},
 }
 
 
@@ -115,6 +125,9 @@ const ITEMS := {
 	"thick_leather": {"name": "Thick leather", "weight": 0.7, "category": "materials"},
 	"iron_ore": {"name": "Iron ore", "weight": 2.0, "category": "materials"},
 	"iron_bar": {"name": "Iron bar", "weight": 1.5, "category": "materials"},
+	"silver_ore": {"name": "Silver ore", "weight": 2.0, "category": "materials"},
+	"silver_bar": {"name": "Silver bar", "weight": 1.5, "category": "materials"},
+	"thick_fur": {"name": "Thick fur", "weight": 0.5, "category": "materials"},
 	"berries": {"name": "Berries", "weight": 0.2, "food": 8.0, "category": "food"},
 	"raw_meat": {"name": "Raw meat", "weight": 0.5, "food": 12.0, "category": "food"},
 	"cooked_meat": {"name": "Cooked meat", "weight": 0.4, "food": 35.0, "category": "food"},
@@ -128,6 +141,9 @@ const ITEMS := {
 	"wolf_pelt": {"name": "Wolf pelt", "weight": 0.6, "category": "animal"},
 	"bear_pelt": {"name": "Bear pelt", "weight": 1.2, "category": "animal"},
 	"claw": {"name": "Bear claw", "weight": 0.3, "category": "animal"},
+	"ice_pelt": {"name": "Ice-wolf pelt", "weight": 0.7, "category": "animal"},
+	"mammoth_pelt": {"name": "Mammoth pelt", "weight": 1.5, "category": "animal"},
+	"mammoth_tusk": {"name": "Mammoth tusk", "weight": 2.0, "category": "animal"},
 }
 
 ## Food eaten by the quick "Eat" button, best first.
@@ -164,6 +180,15 @@ const TOOLS := {
 	"wolf_armor": {"name": "Wolf-pelt armor", "slot": "body", "tier": 3, "icon": "tunic", "drain_mult": 0.67, "armor": 0.7, "upgrades_from": "leather_armor", "category": "clothing"},
 	"wolf_boots": {"name": "Wolf boots", "slot": "feet", "tier": 3, "icon": "boots", "speed_mult": 1.45, "upgrades_from": "leather_boots", "category": "clothing"},
 	"hunters_pack": {"name": "Hunter's pack", "slot": "bag", "tier": 3, "icon": "bag", "carry_bonus": 35.0, "upgrades_from": "leather_bag", "category": "gear"},
+	# Tier 4: silver and thick fur from the far north.
+	"silver_spear": {"name": "Silver spear", "slot": "weapon", "tier": 4, "icon": "spear", "range": 2.4, "damage": 6, "upgrades_from": "iron_spear", "category": "weapons"},
+	"silver_bow": {"name": "Silver bow", "slot": "weapon", "tier": 4, "icon": "bow", "range": 6.5, "damage": 8, "upgrades_from": "iron_bow", "category": "weapons"},
+	"silver_axe": {"name": "Silver axe", "slot": "axe", "tier": 4, "icon": "axe", "yield": 5, "upgrades_from": "iron_axe", "category": "tools"},
+	"silver_pick": {"name": "Silver pickaxe", "slot": "pick", "tier": 4, "icon": "pick", "yield": 5, "upgrades_from": "iron_pick", "category": "tools"},
+	"silver_helm": {"name": "Silver helm", "slot": "head", "tier": 4, "icon": "hood", "max_health": 120.0, "upgrades_from": "iron_helm", "category": "clothing"},
+	"mammoth_armor": {"name": "Mammoth-pelt armor", "slot": "body", "tier": 4, "icon": "tunic", "drain_mult": 0.6, "armor": 0.8, "upgrades_from": "wolf_armor", "category": "clothing"},
+	"icewolf_boots": {"name": "Ice-wolf boots", "slot": "feet", "tier": 4, "icon": "boots", "speed_mult": 1.6, "upgrades_from": "wolf_boots", "category": "clothing"},
+	"great_pack": {"name": "Great pack", "slot": "bag", "tier": 4, "icon": "bag", "carry_bonus": 50.0, "upgrades_from": "hunters_pack", "category": "gear"},
 }
 
 ## Equipment slots in display order, with their labels.
@@ -179,6 +204,7 @@ const RESOURCES := {
 	"grass": {"name": "Tall grass", "item": "fibre", "amount": 4, "slot": "", "energy": 1.0, "xp": 1, "respawn": 40.0},
 	"iron_rock": {"name": "Iron rock", "item": "iron_ore", "amount": 4, "slot": "pick", "needs_tier": 2, "energy": 4.0, "xp": 3, "respawn": 90.0},
 	"herb": {"name": "Mountain herb", "item": "herbs", "amount": 3, "slot": "", "energy": 1.0, "xp": 1, "respawn": 60.0},
+	"silver_rock": {"name": "Silver rock", "item": "silver_ore", "amount": 4, "slot": "pick", "needs_tier": 3, "energy": 5.0, "xp": 4, "respawn": 100.0},
 }
 
 # --- Animals -----------------------------------------------------------------
@@ -220,6 +246,23 @@ const ANIMALS := {
 		"aggressive": true, "bite": 12.0, "bite_every": 1.6, "bite_text": "The wolf bites you!",
 		"xp": 40, "drops": {"raw_meat": 2, "wolf_pelt": 1, "bone": 1}, "respawn": 75.0,
 	},
+	# Far north.
+	"arctic_fox": {
+		"name": "Arctic fox", "hp": 2, "size": 0.3, "color": Color(0.96, 0.96, 0.98), "legs": true, "pointed_ears": true,
+		"wander_speed": 1.2, "flee_speed": 4.5, "flee_radius": 4.0,
+		"xp": 15, "drops": {"raw_meat": 1, "fur": 3}, "respawn": 45.0,
+	},
+	"elk": {
+		"name": "Elk", "hp": 5, "size": 0.55, "color": Color(0.45, 0.33, 0.22), "legs": true, "antlers": true,
+		"wander_speed": 0.9, "flee_speed": 4.2, "flee_radius": 5.0,
+		"xp": 45, "drops": {"raw_meat": 4, "hide": 2, "antler": 2, "bone": 2}, "respawn": 70.0,
+	},
+	"ice_wolf": {
+		"name": "Ice wolf", "hp": 6, "size": 0.45, "color": Color(0.8, 0.85, 0.92), "legs": true, "pointed_ears": true,
+		"wander_speed": 1.1, "flee_speed": 4.8, "flee_radius": 6.5,
+		"aggressive": true, "bite": 18.0, "bite_every": 1.5, "bite_text": "The ice wolf bites you!",
+		"xp": 60, "drops": {"raw_meat": 2, "ice_pelt": 1, "bone": 2}, "respawn": 80.0,
+	},
 }
 
 ## Bosses, one per zone (ZONES[i].boss names the id). A boss lives in its
@@ -243,6 +286,15 @@ const BOSSES := {
 		"windup": 1.0, "charge_time": 0.9, "dizzy": 2.0, "dizzy_damage_mult": 2,
 		"hit_damage": 40.0, "knockback": 4.5, "regen_per_sec": 0.6,
 		"xp": 900, "drops": {"raw_meat": 8, "bear_pelt": 2, "claw": 2, "bone": 4},
+	},
+	"mammoth": {
+		"name": "Great Mammoth", "look": "mammoth", "hit_text": "The mammoth tramples you!",
+		"hp": 80, "size": 1.4, "color": Color(0.42, 0.3, 0.2),
+		"lair": Vector2(156, 9), "lair_radius": 7.0,
+		"walk_speed": 1.3, "charge_speed": 7.0, "aggro_radius": 9.0,
+		"windup": 1.2, "charge_time": 1.0, "dizzy": 2.2, "dizzy_damage_mult": 2,
+		"hit_damage": 50.0, "knockback": 5.0, "regen_per_sec": 0.8,
+		"xp": 1800, "drops": {"raw_meat": 12, "mammoth_pelt": 2, "mammoth_tusk": 2, "bone": 6},
 	},
 }
 
@@ -285,6 +337,17 @@ const RECIPES := {
 	"wolf_armor": {"tool": "wolf_armor", "tier": 3, "station": "crafting", "time": 240.0, "cost": {"leather_armor": 1, "thick_leather": 4, "rope": 2}},
 	"wolf_boots": {"tool": "wolf_boots", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"leather_boots": 1, "thick_leather": 2}},
 	"hunters_pack": {"tool": "hunters_pack", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"leather_bag": 1, "thick_leather": 3, "rope": 2}},
+	# Tier 4 (far north): silver bars from the forge tier 2, thick fur from the rack tier 4.
+	"silver_bar": {"item": "silver_bar", "count": 1, "tier": 2, "station": "forge", "time": 45.0, "cost": {"silver_ore": 2, "wood": 2}},
+	"thick_fur": {"item": "thick_fur", "count": 1, "tier": 4, "station": "tanning", "time": 50.0, "cost": {"fur": 4, "ice_pelt": 1}},
+	"silver_spear": {"tool": "silver_spear", "tier": 4, "station": "crafting", "time": 240.0, "cost": {"iron_spear": 1, "silver_bar": 2, "rope": 1}},
+	"silver_bow": {"tool": "silver_bow", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"iron_bow": 1, "silver_bar": 2, "thick_fur": 1}},
+	"silver_axe": {"tool": "silver_axe", "tier": 4, "station": "crafting", "time": 240.0, "cost": {"iron_axe": 1, "silver_bar": 3}},
+	"silver_pick": {"tool": "silver_pick", "tier": 4, "station": "crafting", "time": 240.0, "cost": {"iron_pick": 1, "silver_bar": 3}},
+	"silver_helm": {"tool": "silver_helm", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"iron_helm": 1, "silver_bar": 2, "thick_fur": 1}},
+	"mammoth_armor": {"tool": "mammoth_armor", "tier": 4, "station": "crafting", "time": 420.0, "cost": {"wolf_armor": 1, "mammoth_pelt": 2, "thick_fur": 3}},
+	"icewolf_boots": {"tool": "icewolf_boots", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"wolf_boots": 1, "ice_pelt": 2, "thick_fur": 2}},
+	"great_pack": {"tool": "great_pack", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"hunters_pack": 1, "thick_fur": 3, "rope": 3}},
 }
 
 const CRAFT_XP := 5
@@ -301,6 +364,7 @@ const STRUCTURES := {
 		{"cost": {"wood": 5}, "time": 10.0, "level": 1, "house_tier": 0},
 		{"cost": {"wood": 10, "stone": 6, "rope": 2}, "time": 120.0, "level": 2, "house_tier": 1},
 		{"cost": {"wood": 20, "stone": 15, "leather": 2, "antler": 2}, "time": 300.0, "level": 4, "house_tier": 2},
+		{"cost": {"wood": 30, "stone": 25, "iron_bar": 4, "thick_leather": 2}, "time": 480.0, "level": 13, "house_tier": 3},
 	]},
 	"storage": {"name": "Storage", "tiers": [
 		{"cost": {"wood": 8}, "time": 15.0, "level": 1, "house_tier": 0, "capacity": 50.0},
@@ -316,9 +380,11 @@ const STRUCTURES := {
 		{"cost": {"wood": 6, "fibre": 6}, "time": 20.0, "level": 2, "house_tier": 0, "speed": 1.0},
 		{"cost": {"wood": 10, "rope": 2, "hide": 2}, "time": 120.0, "level": 4, "house_tier": 1, "speed": 0.5},
 		{"cost": {"wood": 14, "rope": 4, "leather": 4}, "time": 300.0, "level": 8, "house_tier": 2, "speed": 0.4},
+		{"cost": {"wood": 20, "rope": 6, "thick_leather": 2}, "time": 420.0, "level": 13, "house_tier": 3, "speed": 0.3},
 	]},
 	"forge": {"name": "Forge", "tiers": [
 		{"cost": {"stone": 20, "wood": 10, "rope": 4}, "time": 300.0, "level": 8, "house_tier": 2},
+		{"cost": {"stone": 30, "iron_bar": 4, "rope": 4}, "time": 420.0, "level": 13, "house_tier": 3},
 	]},
 }
 
@@ -373,12 +439,24 @@ const QUEST_LINES := {
 		{"text": "Craft an iron axe or pickaxe", "type": "craft", "target": "iron_tool", "count": 1, "xp": 200},
 		{"text": "Reach level 10", "type": "level", "target": "", "count": 10, "xp": 0},
 		{"text": "Defeat the Great Bear", "type": "boss", "target": "bear", "count": 1, "xp": 500},
-		{"text": "Take the northern pass", "type": "travel", "target": "far_north", "count": 1, "xp": 0},
+		{"text": "Take the northern pass", "type": "travel", "target": "far_north", "count": 1, "xp": 100},
+	],
+	"far_north": [
+		{"text": "Hunt 3 arctic foxes", "type": "hunt", "target": "arctic_fox", "count": 3, "xp": 150},
+		{"text": "Mine 4 silver ore (iron pickaxe)", "type": "gather", "target": "silver_ore", "count": 4, "xp": 150},
+		{"text": "Upgrade the forge to tier 2", "type": "build", "target": "forge", "tier": 2, "count": 1, "xp": 250},
+		{"text": "Smelt 4 silver bars", "type": "craft", "target": "silver_bar", "count": 4, "xp": 200},
+		{"text": "Hunt 2 ice wolves", "type": "hunt", "target": "ice_wolf", "count": 2, "xp": 250},
+		{"text": "Upgrade the crafting place to tier 4", "type": "build", "target": "crafting", "tier": 4, "count": 1, "xp": 300},
+		{"text": "Craft a silver axe or pickaxe", "type": "craft", "target": "silver_tool", "count": 1, "xp": 300},
+		{"text": "Reach level 15", "type": "level", "target": "", "count": 15, "xp": 0},
+		{"text": "Defeat the Great Mammoth", "type": "boss", "target": "mammoth", "count": 1, "xp": 900},
+		{"text": "Take the sea pass", "type": "travel", "target": "frozen_sea", "count": 1, "xp": 0},
 	],
 }
 
 ## Quest targets that stand for several ids ("craft an iron axe or pickaxe").
-const QUEST_GROUPS := {"iron_tool": ["iron_axe", "iron_pick"]}
+const QUEST_GROUPS := {"iron_tool": ["iron_axe", "iron_pick"], "silver_tool": ["silver_axe", "silver_pick"]}
 
 static var _quests_flat: Array = []
 
