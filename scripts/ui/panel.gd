@@ -549,6 +549,8 @@ func _build_menu() -> void:
 	_row("Progress is saved every few seconds.", [["Save now", true, func() -> void:
 		Game.save_game()
 		Game.notify("Saved.")]])
+	_row("Phone notification when a build, a craft or a sleep ends while the app is closed.",
+		[["On" if Game.notifications_on else "Off", true, Game.toggle_notifications]])
 	_row("Start over from level 1. This deletes the save.",
 		[["Tap again" if _confirm_reset else "Reset", true, func() -> void:
 			if _confirm_reset:
@@ -576,6 +578,8 @@ func _build_dev_menu() -> void:
 	_row("Level %d" % Game.level, levels)
 	_row("Finish every running timer now.", [["Finish", true, Game.dev_finish_timers]])
 	_row("Forget which recipes you have seen (NEW badges come back).", [["Reset", true, Game.dev_reset_seen]])
+	_row("Notification in 10 s (then put the app in the background). Plugin: %s." % ("present" if NotifyService.available() else "absent"),
+		[["Test", true, NotifyService.test_in.bind(10)]])
 	for id in Data.BOSSES:
 		_row("%s: %s" % [Data.BOSSES[id]["name"], "defeated" if Game.bosses_defeated.has(id) else "alive"],
 			[["Defeat", not Game.bosses_defeated.has(id), Game.dev_defeat_boss.bind(id)]])

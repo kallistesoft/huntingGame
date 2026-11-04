@@ -21,6 +21,7 @@ Data="*res://scripts/autoload/data.gd"
 AdService="*res://scripts/autoload/ad_service.gd"
 StoreService="*res://scripts/autoload/store_service.gd"
 Game="*res://scripts/autoload/game_state.gd"
+NotifyService="*res://scripts/autoload/notify_service.gd"
 
 [display]
 
@@ -30,6 +31,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/stretch/scale=1.35
 window/handheld/orientation=4
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/NotificationSchedulerPlugin/plugin.cfg")
 
 [input_devices]
 

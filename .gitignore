@@ -12,3 +12,4 @@
 
 # Exported builds
 /build/
+.claude/

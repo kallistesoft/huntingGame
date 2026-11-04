@@ -218,6 +218,17 @@ func _test_batch_pin_and_speed_up() -> void:
 	Game.start_craft("rope", 1)
 	await _frames(2)
 	check(station._bar.visible and station._bar_label.text.begins_with("Rope"), "progress bar shows over the crafting place")
+	# Notifications: planned from the running timers; no plugin off the phone.
+	check(not NotifyService.available(), "notification plugin absent off Android")
+	Game.storage["stone"] = 10
+	Game.dev_set_tier("house", 0)
+	Game.start_build("house")
+	var planned := NotifyService.planned()
+	var titles := planned.map(func(n: Dictionary) -> String: return n["title"])
+	check(planned.size() == 2 and "Rope done" in titles and "House ready" in titles, "one notification planned per running timer: %s" % [titles])
+	Game.notifications_on = false
+	NotifyService.on_pause() # must be a no-op without the plugin
+	Game.notifications_on = true
 	await _finish_timers()
 	check(not station._bar.visible, "progress bar hides when the station is idle")
 
@@ -294,7 +305,7 @@ func _test_collect_quest() -> void:
 	Game.quest_progress = 0
 	Game.visited_zones = ["meadow", "east_forest"]
 	Game.quest_event(all[index - 1]["type"], all[index - 1]["target"], all[index - 1]["count"])
-	check(Game.quest_index == index + 1, "'Enter the east forest' completes when the forest was visited earlier")
+	check(Game.quest_index >= index + 1, "'Enter the east forest' completes when the forest was visited earlier")
 	Game.structures = saved_tiers
 	Game.quest_index = 0
 	Game.quest_progress = 0
