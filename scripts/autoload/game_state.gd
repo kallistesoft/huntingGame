@@ -41,6 +41,8 @@ var demo_done := false
 var player_position := Vector2.ZERO
 var has_player_position := false
 var visited_zones := [] # zone ids the hunter has set foot in
+var sounds_on := true
+var time_offset := 0.0 # dev: shifts the day/night clock (not saved)
 var pinned_recipe := "" # recipe followed on the HUD, or ""
 var seen_recipes := [] # recipe ids the player has seen unlocked (for the NEW badge)
 
@@ -352,6 +354,7 @@ func damage(amount: float, source: String) -> void:
 		return
 	amount *= 1.0 - gear_stat("body", "armor", 0.0)
 	notify("%s -%d health" % [source, amount])
+	Sfx.play("hurt")
 	_lose_health(amount)
 
 
@@ -542,6 +545,7 @@ func eat(id: String) -> void:
 		notify("You eat %s: +%d health." % [Data.item_name(id).to_lower(), item["heal"]])
 	else:
 		notify("You eat %s." % Data.item_name(id).to_lower())
+	Sfx.play("eat")
 	changed.emit()
 
 
@@ -972,6 +976,7 @@ func _reset_state() -> void:
 	pinned_recipe = ""
 	seen_recipes = []
 	visited_zones = [Data.ZONES[0]["id"]]
+	sounds_on = true
 
 
 func save_game() -> void:
@@ -988,6 +993,7 @@ func save_game() -> void:
 		"bosses_defeated": bosses_defeated, "demo_done": demo_done,
 		"player_position": [player_position.x, player_position.y],
 		"pinned_recipe": pinned_recipe, "seen_recipes": seen_recipes, "visited_zones": visited_zones,
+		"sounds_on": sounds_on,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -1064,6 +1070,7 @@ func load_game() -> void:
 			visited_zones.append(id)
 	if not data.has("visited_zones") and level >= Data.ZONES[1]["unlock"]["level"]:
 		visited_zones.append(Data.ZONES[1]["id"]) # older save: the forest was already open
+	sounds_on = bool(data.get("sounds_on", true))
 	pinned_recipe = str(data.get("pinned_recipe", ""))
 	if not Data.RECIPES.has(pinned_recipe):
 		pinned_recipe = ""
@@ -1143,3 +1150,16 @@ func dev_defeat_boss(kind: String) -> void:
 	_check_quest()
 	changed.emit()
 	save_game()
+
+
+func toggle_sounds() -> void:
+	sounds_on = not sounds_on
+	if sounds_on:
+		Sfx.play("ui_tap")
+	changed.emit()
+	save_game()
+
+
+func dev_advance_time(seconds: float) -> void:
+	time_offset += seconds
+	changed.emit()

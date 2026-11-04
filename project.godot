@@ -21,6 +21,7 @@ Data="*res://scripts/autoload/data.gd"
 AdService="*res://scripts/autoload/ad_service.gd"
 StoreService="*res://scripts/autoload/store_service.gd"
 Game="*res://scripts/autoload/game_state.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
 
 [display]
 
