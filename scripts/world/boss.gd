@@ -230,13 +230,22 @@ func _mesh(parent: Node3D, mesh: Mesh, color: Color, pos := Vector3.ZERO, scale 
 func _build_shape() -> void:
 	var s: float = Data.BOSSES[kind]["size"]
 	var c: Color = Data.BOSSES[kind]["color"]
-	var bear: bool = Data.BOSSES[kind].get("look", "boar") == "bear"
+	var look: String = Data.BOSSES[kind].get("look", "boar")
+	var bear := look == "bear"
+	var mammoth := look == "mammoth"
 	_body = _pivot(self, Vector3.ZERO)
 	_torso = _pivot(_body, Vector3(0, s * 1.1, 0))
-	_mesh(_torso, Shapes.capsule(s * 0.75, s * 2.6), c, Vector3.ZERO, Vector3(1.2, 1.15, 1.0) if bear else Vector3.ONE).rotation_degrees.x = 90
+	var torso_scale := Vector3.ONE
 	if bear:
-		_mesh(_torso, Shapes.sphere(s * 0.7), c.lightened(0.08), Vector3(0, s * 0.35, -s * 0.4), Vector3(1.1, 0.8, 1.2)) # hump
-	else:
+		torso_scale = Vector3(1.2, 1.15, 1.0)
+	elif mammoth:
+		torso_scale = Vector3(1.3, 1.3, 1.05)
+	_mesh(_torso, Shapes.capsule(s * 0.75, s * 2.6), c, Vector3.ZERO, torso_scale).rotation_degrees.x = 90
+	if bear or mammoth:
+		_mesh(_torso, Shapes.sphere(s * 0.7), c.lightened(0.08), Vector3(0, s * 0.45, -s * 0.3), Vector3(1.2, 0.9, 1.3)) # hump
+	if mammoth: # shaggy skirt of hair
+		_mesh(_torso, Shapes.cylinder(s * 1.0, s * 0.5, s * 0.85), c.darkened(0.15), Vector3(0, -s * 0.55, 0))
+	if not bear and not mammoth:
 		for i in 6: # bristly mane along the back
 			var spike := _mesh(_torso, Shapes.cylinder(s * 0.14, s * 0.55, 0.0), c.darkened(0.4), Vector3(0, s * 0.7, s * (0.7 - i * 0.28)))
 			spike.rotation_degrees.x = -20
@@ -249,6 +258,10 @@ func _build_shape() -> void:
 	if bear:
 		_mesh(_head, Shapes.sphere(s * 0.26), c.lightened(0.25), Vector3(0, -s * 0.1, s * 0.65), Vector3(1.0, 0.8, 1.1)) # muzzle
 		_mesh(_head, Shapes.sphere(s * 0.1), Color(0.08, 0.06, 0.05), Vector3(0, -s * 0.02, s * 0.88)) # nose
+	elif mammoth: # trunk: three segments curving down
+		for k in 3:
+			var seg := _mesh(_head, Shapes.cylinder(s * (0.17 - k * 0.03), s * 0.5), c, Vector3(0, -s * (0.2 + k * 0.42), s * (0.65 + k * 0.12)))
+			seg.rotation_degrees.x = 15 + k * 10
 	else:
 		_mesh(_head, Shapes.cylinder(s * 0.24, s * 0.4, s * 0.28), Color(0.55, 0.38, 0.35), Vector3(0, -s * 0.1, s * 0.75)).rotation_degrees.x = 90
 	for x in [-1, 1]:
@@ -258,6 +271,10 @@ func _build_shape() -> void:
 			for leg in _legs:
 				for k in 3: # claws
 					_mesh(leg, Shapes.cylinder(s * 0.035, s * 0.18, 0.0), Color(0.95, 0.92, 0.85), Vector3((k - 1) * s * 0.09, -s * 0.8, s * 0.2)).rotation_degrees.x = 90
+		elif mammoth:
+			_mesh(_head, Shapes.sphere(s * 0.14), c.darkened(0.1), Vector3(x * s * 0.5, s * 0.25, -s * 0.1), Vector3(0.5, 1.0, 1.0)) # small ears
+			var tusk := _mesh(_head, Shapes.cylinder(s * 0.09, s * 1.3, s * 0.03), Color(0.95, 0.92, 0.84), Vector3(x * s * 0.3, -s * 0.35, s * 0.9))
+			tusk.rotation_degrees = Vector3(-70, 0, x * 25)
 		else:
 			var tusk := _mesh(_head, Shapes.cylinder(s * 0.07, s * 0.55, 0.0), Color(0.97, 0.94, 0.85), Vector3(x * s * 0.3, -s * 0.05, s * 0.85))
 			tusk.rotation_degrees = Vector3(-40, 0, x * 20)
