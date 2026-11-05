@@ -95,6 +95,14 @@ func _finish_timers() -> void:
 
 func _test_gather() -> void:
 	print("Gathering")
+	var Models := load("res://scripts/world/models.gd")
+	var holder := Node3D.new()
+	world.add_child(holder)
+	var spawned: Node3D = Models.spawn("tree_pine", holder, 4.0)
+	check(spawned != null and Models.bounds(spawned).size.y > 3.0, "pine tree model loads and scales to 4 m")
+	holder.queue_free()
+	var tree := _nearest(func(n: Node) -> bool: return n.get("kind") == "tree")
+	check(tree != null and tree.radius > 0.0 and tree.is_available(), "tree node keeps radius and availability")
 	await _gather("tree", "wood", 5)
 	check(Game.inventory.get("wood", 0) >= 5, "chopped 5 wood by hand")
 	check(Game.energy < Data.START_ENERGY, "chopping costs energy")

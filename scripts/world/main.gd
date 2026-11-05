@@ -201,8 +201,11 @@ func _add_environment() -> void:
 	env.ambient_light_energy = 0.5
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.glow_enabled = true
-	env.glow_intensity = 0.35
-	env.glow_bloom = 0.05
+	env.glow_intensity = 0.45
+	env.glow_bloom = 0.06
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.0
+	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.72, 0.82, 0.9)
 	env.fog_density = 0.0025
@@ -219,7 +222,10 @@ func _add_environment() -> void:
 	sun.light_energy = 1.25
 	sun.light_color = Color(1.0, 0.95, 0.85)
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 40.0
+	sun.shadow_blur = 1.6
+	sun.shadow_bias = 0.03
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 45.0
 	add_child(sun)
 
 
