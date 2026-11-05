@@ -7,6 +7,20 @@ extends Node3D
 
 const Shapes := preload("res://scripts/world/shapes.gd")
 const Fx := preload("res://scripts/world/fx.gd")
+const Models := preload("res://scripts/world/models.gd")
+
+## Model per animal kind: [model id, height in metres, tint]. Kinds not
+## listed keep their code-built shape.
+const LOOKS := {
+	"rabbit": ["bunny", 0.55, Color(0.95, 0.9, 0.8)],
+	"snow_hare": ["bunny", 0.58, Color(1.0, 1.0, 1.0)],
+	"deer": ["deer", 1.55, Color.WHITE],
+	"elk": ["stag", 1.95, Color(0.85, 0.75, 0.65)],
+	"goat": ["sheep", 1.15, Color(0.95, 0.93, 0.88)],
+	"wolf": ["wolf", 1.0, Color.WHITE],
+	"ice_wolf": ["wolf", 1.1, Color(0.85, 0.9, 1.0)],
+	"arctic_fox": ["fox", 0.65, Color(1.0, 1.0, 1.0)],
+}
 const HIT_COLOR := Color(1, 1, 1)
 const DEATH_FALL := 0.35
 const DEATH_LIE := 0.7
@@ -39,6 +53,7 @@ var _legs: Array[Node3D] = []
 var _ears: Array[Node3D] = []
 var _tail: Node3D
 var _meshes: Array[MeshInstance3D] = []
+var _anim: AnimationPlayer = null # set when a real model with animations is used
 
 
 func _ready() -> void:
@@ -108,6 +123,15 @@ func _animate(delta: float, speed: float) -> void:
 	var s: float = Data.ANIMALS[kind]["size"]
 	var moving := speed > 0.02
 	var running := speed > 0.5
+	if _anim != null:
+		# A real model: pick its own clips by speed.
+		if running:
+			Models.play(_anim, ["run", "gallop", "jump", "walk"], 1.3)
+		elif moving:
+			Models.play(_anim, ["walk", "run"], 1.0)
+		else:
+			Models.play(_anim, ["idle", "eat", "sit"], 1.0)
+		return
 
 	if not _legs.is_empty():
 		_phase += delta * (13.0 if running else 6.0) * float(moving)
@@ -179,6 +203,8 @@ func interact(_player: Node3D) -> void:
 func _play_death() -> void:
 	_dying = true
 	_set_flash(false)
+	if _anim != null and Models.play(_anim, ["death", "die"]) != "":
+		_anim.get_animation(_anim.current_animation).loop_mode = Animation.LOOP_NONE
 	var t := create_tween()
 	t.tween_property(_body, "rotation:z", PI / 2.0, DEATH_FALL).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	t.parallel().tween_property(_body, "position:y", Data.ANIMALS[kind]["size"] * 0.3, DEATH_FALL)
@@ -232,6 +258,16 @@ func _build_shape() -> void:
 	var s: float = d["size"]
 	var c: Color = d["color"]
 	_body = _pivot(self, Vector3.ZERO)
+	if LOOKS.has(kind) and Models.has(LOOKS[kind][0]):
+		var look: Array = LOOKS[kind]
+		var model := Models.spawn(look[0], _body, look[1])
+		if look[2] != Color.WHITE:
+			Models.tint(model, look[2])
+		_meshes.append_array(Models.meshes(model))
+		_anim = Models.animation_player(model)
+		_torso = _body
+		_head = _pivot(_body, Vector3.ZERO) # unused with a model, kept for the idle code paths
+		return
 	if d.get("legs", false):
 		_torso = _pivot(_body, Vector3(0, s * 1.6, 0))
 		_mesh(_torso, Shapes.capsule(s * 0.6, s * 2.6), c).rotation_degrees.x = 90

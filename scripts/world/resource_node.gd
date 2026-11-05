@@ -3,6 +3,7 @@ extends Node3D
 ## Gathered-out nodes grow back after Data.RESOURCES[kind].respawn seconds.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
+const Models := preload("res://scripts/world/models.gd")
 
 var kind := "tree":
 	set(value):
@@ -24,13 +25,68 @@ func _ready() -> void:
 	_empty = Node3D.new()
 	add_child(_full)
 	add_child(_empty)
-	_build_shape()
+	if not _build_model():
+		_build_shape()
 	if kind != "pond":
 		remaining = Data.RESOURCES[kind]["amount"]
-	for child in _full.get_children():
-		if child is MeshInstance3D:
-			_fade_meshes.append(child)
+	_fade_meshes = Models.meshes(_full)
 	_refresh()
+
+
+## Which model stands here, by kind and zone; "" keeps the code-built shape.
+func _model_id() -> String:
+	var zone := Game.zone_at(Shapes.flat(self))
+	var pick := int(absf(position.x * 7.3 + position.z * 3.1)) % 2 # stable variant per spot
+	match kind:
+		"tree":
+			match zone:
+				0: return ["tree_meadow", "tree_meadow_2"][pick]
+				1: return ["tree_pine", "tree_pine_2"][pick]
+				2: return ["tree_pine_2", "tree_pine"][pick]
+				_: return ["tree_snow", "tree_snow_2"][pick]
+		"rock", "iron_rock", "silver_rock": return ["rock", "rock_2"][pick]
+		"bush": return "bush_berries"
+		"grass": return "grass"
+		"herb": return "flowers"
+	return ""
+
+
+## Real models for the full and the gathered-out looks. False when the model
+## is missing, so the caller falls back to the code-built shape.
+func _build_model() -> bool:
+	var id := _model_id()
+	if id == "" or not Models.has(id):
+		return false
+	match kind:
+		"tree":
+			var scale := randf_range(0.9, 1.15)
+			Models.spawn(id, _full, 4.2 * scale)
+			if Models.spawn("stump", _empty, 0.45) == null:
+				Shapes.add(_empty, Shapes.cylinder(0.2, 0.3), Color(0.4, 0.26, 0.12), Vector3(0, 0.15, 0))
+		"rock", "iron_rock", "silver_rock":
+			var full := Models.spawn(id, _full, 0.7)
+			full.rotation.y = position.x * 1.7
+			if kind == "iron_rock":
+				Models.tint(full, Color(0.95, 0.72, 0.55))
+				for v in [Vector3(0.2, 0.45, 0.3), Vector3(-0.2, 0.5, -0.25)]:
+					Shapes.add(_full, Shapes.sphere(0.1), Color(0.75, 0.45, 0.28), v, Vector3(1.4, 0.6, 1.0)) # rusty veins
+			elif kind == "silver_rock":
+				Models.tint(full, Color(1.05, 1.08, 1.15))
+				for v in [Vector3(-0.2, 0.45, 0.3), Vector3(0.25, 0.5, -0.25)]:
+					Shapes.add(_full, Shapes.sphere(0.09), Color(0.93, 0.95, 1.0), v, Vector3(1.5, 0.5, 1.0)) # bright veins
+			Models.spawn(id, _empty, 0.3)
+		"bush":
+			Models.spawn(id, _full, 0.95)
+			if Models.spawn("bush", _empty, 0.85) == null:
+				Shapes.add(_empty, Shapes.sphere(0.45), Color(0.16, 0.4, 0.18), Vector3(0, 0.35, 0))
+		"grass":
+			var g := Models.spawn(id, _full, 1.0)
+			g.rotation.y = position.z * 2.3
+			Shapes.add(_empty, Shapes.cylinder(0.3, 0.12), Color(0.35, 0.45, 0.2), Vector3(0, 0.06, 0))
+		"herb":
+			Models.spawn(id, _full, 0.55)
+			Shapes.add(_empty, Shapes.sphere(0.14), Color(0.25, 0.45, 0.25), Vector3(0, 0.08, 0), Vector3(1, 0.5, 1))
+	return true
 
 
 func _process(delta: float) -> void:

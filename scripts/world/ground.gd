@@ -4,6 +4,7 @@ extends Node3D
 ## edge of each zone whose entry is a fence, shown until the zone is unlocked.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
+const Models := preload("res://scripts/world/models.gd")
 
 var camp: Rect2
 
@@ -100,8 +101,13 @@ func _add_boulder_wall(rect: Rect2, gate: Vector2) -> void:
 ## Swaying grass tufts, drawn in one batch with a MultiMesh. Kept off the
 ## camp and out of boss lairs.
 func _add_grass(zone: Rect2, count: int, color: Color, seed_offset: int) -> void:
-	var blade := Shapes.cylinder(0.05, 0.4, 0.0)
+	var blade: Mesh = Shapes.cylinder(0.05, 0.4, 0.0)
 	blade.radial_segments = 4
+	var model_mesh := _grass_mesh()
+	var tuft_scale := 1.0
+	if model_mesh != null:
+		blade = model_mesh
+		tuft_scale = 0.45 / maxf(0.01, model_mesh.get_aabb().size.y)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
@@ -121,16 +127,42 @@ func _add_grass(zone: Rect2, count: int, color: Color, seed_offset: int) -> void
 		var tint := color * rng.randf_range(0.8, 1.15)
 		for b in 3: # three blades per tuft
 			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.35, 0.35))
-			var size := rng.randf_range(0.7, 1.3)
-			var offset := Vector3(rng.randf_range(-0.12, 0.12), 0.2 * size, rng.randf_range(-0.12, 0.12))
+			var size := rng.randf_range(0.7, 1.3) * tuft_scale
+			var offset := Vector3(rng.randf_range(-0.12, 0.12), 0.2 * size if model_mesh == null else 0.0, rng.randf_range(-0.12, 0.12))
 			mm.set_instance_transform(i, Transform3D(basis.scaled(Vector3.ONE * size), Vector3(p.x, 0, p.y) + offset))
 			mm.set_instance_color(i, Color(tint, 1.0))
 			i += 1
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = Shapes.sway_material(Color.WHITE, 0.25)
+	if model_mesh == null:
+		mmi.material_override = Shapes.sway_material(Color.WHITE, 0.25)
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
+
+
+## The grass model's mesh, for the tufts, or null to keep the blades.
+static var _grass_mesh_cache: Mesh = null
+static var _grass_mesh_tried := false
+func _grass_mesh() -> Mesh:
+	if _grass_mesh_tried:
+		return _grass_mesh_cache
+	_grass_mesh_tried = true
+	if not Models.has("grass"):
+		return null
+	var holder := Node3D.new()
+	add_child(holder)
+	var node := Models.spawn("grass", holder, 1.0)
+	var meshes := Models.meshes(node)
+	if not meshes.is_empty():
+		var mi := meshes[0]
+		var mesh: Mesh = mi.mesh.duplicate()
+		for i in mesh.get_surface_count():
+			var m := mi.get_active_material(i)
+			if m != null:
+				mesh.surface_set_material(i, m)
+		_grass_mesh_cache = mesh
+	holder.queue_free()
+	return _grass_mesh_cache
 
 
 func _in_lair(p: Vector2) -> bool:

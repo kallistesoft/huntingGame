@@ -3,6 +3,7 @@ extends Node3D
 ## afar, or the campfire, where the hunter can sleep on the ground.
 
 const Shapes := preload("res://scripts/world/shapes.gd")
+const Models := preload("res://scripts/world/models.gd")
 
 var part := "chest" # "chest" or "fire"
 var world: Node3D
@@ -14,6 +15,16 @@ var _time := 0.0
 func _ready() -> void:
 	add_to_group("interactable")
 	match part:
+		"chest" when Models.has("chest"):
+			Models.spawn("chest", self, 0.75)
+			Shapes.label(self, "Outpost chest", Vector3(0, 1.6, 0), 36)
+		"fire" when Models.has("campfire"):
+			Models.spawn("campfire", self, 0.6)
+			_flame = Node3D.new()
+			add_child(_flame)
+			Shapes.add(_flame, Shapes.cylinder(0.18, 0.55, 0.0), Color(1.0, 0.55, 0.1), Vector3(0, 0.5, 0))
+			Shapes.add(_flame, Shapes.cylinder(0.1, 0.38, 0.0), Color(1.0, 0.9, 0.3), Vector3(0, 0.45, 0))
+			Shapes.label(self, "Campfire", Vector3(0, 1.6, 0), 36)
 		"chest":
 			var wood := Color(0.45, 0.3, 0.18)
 			Shapes.add(self, Shapes.box(Vector3(1.1, 0.6, 0.7)), wood, Vector3(0, 0.3, 0))
