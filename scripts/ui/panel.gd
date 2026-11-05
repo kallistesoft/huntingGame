@@ -437,12 +437,7 @@ func _build_hunter() -> void:
 		totals.append("Hunger and thirst %d%% slower" % drain)
 	_label("Level %d · %s" % [Game.level, " · ".join(totals)])
 	_heading("Equipment")
-	_grid = GridContainer.new()
-	_grid.columns = GRID_COLUMNS
-	_grid.mouse_filter = Control.MOUSE_FILTER_PASS
-	_grid.add_theme_constant_override("h_separation", 10)
-	_grid.add_theme_constant_override("v_separation", 10)
-	_content.add_child(_grid)
+	_new_grid()
 	for slot in Data.SLOTS:
 		_slot_card(slot)
 	_grid = null
