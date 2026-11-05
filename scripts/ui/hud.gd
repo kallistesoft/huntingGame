@@ -533,7 +533,8 @@ func _set_stat(stat: String, value: float, max_value: float, text: String, smoot
 
 
 func _update_prompt() -> void:
-	_prompt_ad.text = "+%d energy · ad (%d)" % [Data.AD_ENERGY_REWARD, Game.ads_left_today()]
+	_prompt_ad.text = "Wake up rested · ad (%d)" % Game.ads_left_today() if Game.is_sleeping() \
+		else "+%d energy · ad (%d)" % [Data.AD_ENERGY_REWARD, Game.ads_left_today()]
 	_prompt_ad.disabled = Game.ads_left_today() <= 0
 	var was_visible := _prompt.visible
 	if Game.is_sleeping():
