@@ -33,7 +33,10 @@ const ADS_PER_DAY := 10
 # --- Progression -------------------------------------------------------------
 
 ## Total XP needed to reach level (index + 1). Level 1 starts at 0 XP.
-const LEVEL_XP := [0, 50, 150, 300, 500, 750, 1050, 1400, 1800, 2250, 2750, 3300, 3900, 4550, 5250, 6000, 6800, 7650, 8550, 9500]
+## The curve follows the quest lines (tools/xp_budget.gd prints where each
+## level lands): a zone's level gate is reached around its boss fight, so a
+## new zone opens when the previous line is nearly done, not halfway through.
+const LEVEL_XP := [0, 60, 200, 450, 900, 1250, 1600, 2000, 2600, 3300, 3800, 4250, 4700, 5600, 6600, 7200, 7700, 8200, 9000, 10000]
 
 # --- Zones -------------------------------------------------------------------
 
@@ -276,7 +279,7 @@ const BOSSES := {
 		"walk_speed": 1.6, "charge_speed": 9.0, "aggro_radius": 8.0,
 		"windup": 0.9, "charge_time": 0.8, "dizzy": 2.2, "dizzy_damage_mult": 2,
 		"hit_damage": 30.0, "knockback": 4.0, "regen_per_sec": 0.5,
-		"xp": 400, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2, "bone": 3},
+		"xp": 150, "drops": {"raw_meat": 6, "hide": 3, "tusk": 2, "bone": 3},
 	},
 	"bear": {
 		"name": "Great Bear", "look": "bear", "hit_text": "The bear swipes you!",
@@ -285,7 +288,7 @@ const BOSSES := {
 		"walk_speed": 1.5, "charge_speed": 7.5, "aggro_radius": 8.5,
 		"windup": 1.0, "charge_time": 0.9, "dizzy": 2.0, "dizzy_damage_mult": 2,
 		"hit_damage": 40.0, "knockback": 4.5, "regen_per_sec": 0.6,
-		"xp": 900, "drops": {"raw_meat": 8, "bear_pelt": 2, "claw": 2, "bone": 4},
+		"xp": 300, "drops": {"raw_meat": 8, "bear_pelt": 2, "claw": 2, "bone": 4},
 	},
 	"mammoth": {
 		"name": "Great Mammoth", "look": "mammoth", "hit_text": "The mammoth tramples you!",
@@ -294,7 +297,7 @@ const BOSSES := {
 		"walk_speed": 1.3, "charge_speed": 7.0, "aggro_radius": 9.0,
 		"windup": 1.2, "charge_time": 1.0, "dizzy": 2.2, "dizzy_damage_mult": 2,
 		"hit_damage": 50.0, "knockback": 5.0, "regen_per_sec": 0.8,
-		"xp": 1800, "drops": {"raw_meat": 12, "mammoth_pelt": 2, "mammoth_tusk": 2, "bone": 6},
+		"xp": 600, "drops": {"raw_meat": 12, "mammoth_pelt": 2, "mammoth_tusk": 2, "bone": 6},
 	},
 }
 
@@ -350,7 +353,10 @@ const RECIPES := {
 	"great_pack": {"tool": "great_pack", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"hunters_pack": 1, "thick_fur": 3, "rope": 3}},
 }
 
-const CRAFT_XP := 5
+## Crafting a tool or a piece of gear is worth XP; materials and food give
+## one point apiece, so queueing "Max" rope is not a way to level up.
+const CRAFT_XP_TOOL := 10
+const CRAFT_XP_ITEM := 1
 ## Jobs a station can hold at once: one running and the rest waiting.
 const QUEUE_SLOTS := 2
 
@@ -397,8 +403,8 @@ const BUILD_XP_PER_TIER := 15
 ## animal's drop, target "animal:item"), "craft" (recipe), "build" (structure,
 ## optional "tier"; also counts one built earlier), "level" (reach a level),
 ## "boss" (defeat a boss id), "travel" (set foot in a zone id).
-## XP is tuned so a zone's line plus its boss carries the hunter to the next
-## zone's level gate with a little hunting on the side.
+## XP is tuned so a zone's line, its boss and the gathering they force land
+## the hunter on the next zone's level gate around the boss fight.
 const QUEST_LINES := {
 	"meadow": [
 		{"text": "Gather 5 wood", "type": "gather", "target": "wood", "count": 5, "xp": 15},
@@ -424,7 +430,7 @@ const QUEST_LINES := {
 		{"text": "Craft a bone pickaxe", "type": "craft", "target": "bone_pick", "count": 1, "xp": 120},
 		{"text": "Craft leather boots", "type": "craft", "target": "leather_boots", "count": 1, "xp": 120},
 		{"text": "Craft leather armor", "type": "craft", "target": "leather_armor", "count": 1, "xp": 150},
-		{"text": "Reach level 5", "type": "level", "target": "", "count": 5, "xp": 0},
+		{"text": "Reach level 7", "type": "level", "target": "", "count": 7, "xp": 0},
 		{"text": "Defeat the Great Boar", "type": "boss", "target": "boar", "count": 1, "xp": 300},
 		{"text": "Upgrade the house to tier 2", "type": "build", "target": "house", "tier": 2, "count": 1, "xp": 150},
 	],
@@ -437,7 +443,7 @@ const QUEST_LINES := {
 		{"text": "Upgrade the crafting place to tier 3", "type": "build", "target": "crafting", "tier": 3, "count": 1, "xp": 200},
 		{"text": "Tan 2 thick leather", "type": "craft", "target": "thick_leather", "count": 2, "xp": 120},
 		{"text": "Craft an iron axe or pickaxe", "type": "craft", "target": "iron_tool", "count": 1, "xp": 200},
-		{"text": "Reach level 10", "type": "level", "target": "", "count": 10, "xp": 0},
+		{"text": "Reach level 11", "type": "level", "target": "", "count": 11, "xp": 0},
 		{"text": "Defeat the Great Bear", "type": "boss", "target": "bear", "count": 1, "xp": 500},
 		{"text": "Take the northern pass", "type": "travel", "target": "far_north", "count": 1, "xp": 100},
 	],
@@ -634,3 +640,8 @@ func cost_text(cost: Dictionary) -> String:
 	for id in cost:
 		parts.append("%s ×%d" % [item_name(id), cost[id]])
 	return ", ".join(parts)
+
+
+## XP for one craft job of the recipe (multiply by the count for items).
+static func craft_xp(recipe: Dictionary) -> int:
+	return CRAFT_XP_TOOL if recipe.has("tool") else CRAFT_XP_ITEM

@@ -891,7 +891,7 @@ func _finish_craft(job: Dictionary) -> void:
 	else:
 		_add(storage, r["item"], r["count"] * count)
 	notify("Crafted: %s%s%s" % [Data.recipe_name(recipe_id), " ×%d" % count if count > 1 else "", "" if r.has("tool") else " (in storage)"])
-	gain_xp(Data.CRAFT_XP * count)
+	gain_xp(Data.craft_xp(r) * count)
 	quest_event("craft", recipe_id, count)
 	changed.emit()
 	crafted.emit(recipe_id)
