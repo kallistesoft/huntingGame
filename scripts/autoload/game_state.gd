@@ -36,6 +36,7 @@ var ads_today := 0
 var quest_index := 0
 var quest_progress := 0
 var xp_boost_until := 0.0
+var buffs := {} # kind -> {"until": unix time, "amount": value, "label": dish name}; see Data.BUFFS
 var bosses_defeated := [] # boss ids (Data.BOSSES) the hunter has beaten
 var demo_done := false
 var player_position := Vector2.ZERO
@@ -67,11 +68,12 @@ func _notification(what: int) -> void:
 func _process(delta: float) -> void:
 	var t := now()
 	var drain := (Data.SLEEP_NEED_RATE if is_sleeping() else 1.0) * gear_stat("body", "drain_mult", 1.0)
-	hunger = maxf(0.0, hunger - Data.HUNGER_PER_SEC * delta * drain)
+	hunger = maxf(0.0, hunger - Data.HUNGER_PER_SEC * delta * drain * (1.0 - buff_amount("hunger_slow")))
 	thirst = maxf(0.0, thirst - Data.THIRST_PER_SEC * delta * drain)
 	if not is_dead() and hunger > Data.LOW_NEED and thirst > Data.LOW_NEED:
-		health = minf(max_health(), health + Data.HEALTH_REGEN * delta)
+		health = minf(max_health(), health + Data.HEALTH_REGEN * maxf(1.0, buff_amount("regen")) * delta)
 	_starve(delta)
+	_expire_buffs(t)
 	_update_timers(t)
 	_autosave_left -= delta
 	if _autosave_left <= 0.0:
@@ -118,7 +120,7 @@ func storage_capacity() -> float:
 
 
 func carry_limit() -> float:
-	return Data.BASE_CARRY + gear_stat("bag", "carry_bonus", 0.0)
+	return Data.BASE_CARRY + gear_stat("bag", "carry_bonus", 0.0) + buff_amount("carry")
 
 
 func max_health() -> float:
@@ -181,7 +183,9 @@ func weapon_range() -> float:
 
 func weapon_damage() -> int:
 	var w := weapon()
-	return Data.TOOLS[w]["damage"] if w != "" else 0
+	if w == "":
+		return 0
+	return ceili(Data.TOOLS[w]["damage"] * (1.0 + buff_amount("power")))
 
 
 func is_sleeping() -> bool:
@@ -196,8 +200,50 @@ func xp_boost_left() -> float:
 	return maxf(0.0, xp_boost_until - now())
 
 
+# --- Food buffs --------------------------------------------------------------
+
+func buff_left(kind: String) -> float:
+	return maxf(0.0, buffs[kind]["until"] - now()) if buffs.has(kind) else 0.0
+
+
+## The bonus a running buff gives (0 when none), already capped by Data.BUFFS.
+func buff_amount(kind: String) -> float:
+	return buffs[kind]["amount"] if buff_left(kind) > 0.0 else 0.0
+
+
+## Running buff kinds, the one ending soonest first.
+func active_buffs() -> Array:
+	var kinds := buffs.keys().filter(func(k: String) -> bool: return buff_left(k) > 0.0)
+	kinds.sort_custom(func(a: String, b: String) -> bool: return buffs[a]["until"] < buffs[b]["until"])
+	return kinds
+
+
+## Starts (or restarts) the buffs of a dish. A kind never stacks with
+## itself: eating it again resets the timer to the dish's duration. Only
+## MAX_BUFFS kinds run at once; a new one replaces the one ending soonest.
+func _apply_buffs(item: Dictionary, label: String) -> void:
+	for b in item.get("buffs", []):
+		var kind: String = b["kind"]
+		var spec: Dictionary = Data.BUFFS[kind]
+		if buff_left(kind) <= 0.0:
+			var running := active_buffs()
+			if running.size() >= Data.MAX_BUFFS:
+				var dropped: String = running[0]
+				notify("%s replaces %s." % [spec["name"], Data.BUFFS[dropped]["name"]])
+				buffs.erase(dropped)
+		buffs[kind] = {"until": now() + b["minutes"] * 60.0, "amount": minf(b["amount"], spec["max"]), "label": label}
+
+
+func _expire_buffs(t: float) -> void:
+	for kind in buffs.keys():
+		if buffs[kind]["until"] <= t:
+			notify("The %s wore off." % str(buffs[kind]["label"]).to_lower())
+			buffs.erase(kind)
+			changed.emit()
+
+
 func move_speed() -> float:
-	var speed := Data.PLAYER_SPEED * gear_stat("feet", "speed_mult", 1.0)
+	var speed := Data.PLAYER_SPEED * gear_stat("feet", "speed_mult", 1.0) * (1.0 + buff_amount("speed"))
 	if energy <= 0.0:
 		speed *= Data.EXHAUSTED_SPEED
 	for need in [hunger, thirst]:
@@ -444,7 +490,7 @@ func _can_act() -> bool:
 
 
 func _spend_energy(amount: float) -> void:
-	energy = maxf(0.0, energy - amount)
+	energy = maxf(0.0, energy - amount * (1.0 - buff_amount("energy_save")))
 	if energy <= 0.0:
 		notify("You are exhausted. Time to sleep.")
 
@@ -555,16 +601,19 @@ func eat(id: String) -> void:
 		return
 	var item: Dictionary = Data.ITEMS[id]
 	var heals: bool = item.has("heal") and health < max_health()
-	if hunger >= 99.0 and not heals:
-		notify("You are not hungry.")
+	var feeds: bool = item.get("food", 0.0) > 0.0 and hunger < 99.0
+	var quenches: bool = item.get("water", 0.0) > 0.0 and thirst < 99.0
+	if not (feeds or quenches or heals or item.has("buffs")):
+		notify("You are not hungry." if item.get("food", 0.0) > 0.0 else "You are not thirsty.")
 		return
 	_remove(inventory, id, 1)
-	hunger = minf(100.0, hunger + item["food"])
+	hunger = minf(100.0, hunger + item.get("food", 0.0))
+	thirst = minf(100.0, thirst + item.get("water", 0.0))
 	if item.has("heal"):
 		health = minf(max_health(), health + item["heal"])
-		notify("You eat %s: +%d health." % [Data.item_name(id).to_lower(), item["heal"]])
-	else:
-		notify("You eat %s." % Data.item_name(id).to_lower())
+	_apply_buffs(item, Data.item_name(id))
+	var verb := "drink" if item.get("food", 0.0) <= 0.0 else "eat"
+	notify("You %s %s: %s." % [verb, Data.item_name(id).to_lower(), Data.food_text(id)])
 	Sfx.play("eat")
 	changed.emit()
 
@@ -1006,6 +1055,7 @@ func _reset_state() -> void:
 	quest_index = 0
 	quest_progress = 0
 	xp_boost_until = 0.0
+	buffs = {}
 	bosses_defeated = []
 	demo_done = false
 	player_position = Vector2.ZERO
@@ -1027,7 +1077,7 @@ func save_game() -> void:
 		"structures": structures, "craft_jobs": craft_jobs,
 		"sleep_until": sleep_until, "ad_day": ad_day, "ads_today": ads_today,
 		"quest_index": quest_index, "quest_progress": quest_progress,
-		"xp_boost_until": xp_boost_until,
+		"xp_boost_until": xp_boost_until, "buffs": buffs,
 		"bosses_defeated": bosses_defeated, "demo_done": demo_done,
 		"player_position": [player_position.x, player_position.y],
 		"pinned_recipe": pinned_recipe, "seen_recipes": seen_recipes, "visited_zones": visited_zones,
@@ -1069,10 +1119,12 @@ func load_game() -> void:
 				"busy_until": float(s.get("busy_until", 0.0)),
 				"next_tier": int(s.get("next_tier", 0)),
 			}
-	if not saved_structures.has("tailor") and saved_structures.has("crafting"):
-		# Save from before the tailor's tent: it opens at the crafting place's
-		# tier, so the gear the player could already make stays craftable.
-		structures["tailor"]["tier"] = structures["crafting"]["tier"]
+	for late in ["tailor", "kitchen"]:
+		if not saved_structures.has(late) and saved_structures.has("crafting"):
+			# Save from before this station split off the crafting place: it
+			# opens at the crafting place's tier, so what the player could
+			# already make stays craftable.
+			structures[late]["tier"] = structures["crafting"]["tier"]
 	craft_jobs = {}
 	var saved_jobs: Dictionary = data.get("craft_jobs", {})
 	if data.has("craft_job") and not data["craft_job"].is_empty():
@@ -1096,6 +1148,12 @@ func load_game() -> void:
 	quest_index = int(data.get("quest_index", 0))
 	quest_progress = int(data.get("quest_progress", 0))
 	xp_boost_until = float(data.get("xp_boost_until", 0.0))
+	buffs = {}
+	var saved_buffs: Dictionary = data.get("buffs", {})
+	for kind in saved_buffs:
+		var b = saved_buffs[kind]
+		if Data.BUFFS.has(kind) and b is Dictionary and float(b.get("until", 0.0)) > now():
+			buffs[kind] = {"until": float(b["until"]), "amount": minf(float(b.get("amount", 0.0)), Data.BUFFS[kind]["max"]), "label": str(b.get("label", "buff"))}
 	bosses_defeated = []
 	for id in data.get("bosses_defeated", []):
 		if Data.BOSSES.has(id):
