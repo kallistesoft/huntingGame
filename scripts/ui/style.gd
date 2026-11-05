@@ -11,6 +11,11 @@ const MUTED := Color("a8b6a9")
 const GOOD := Color("8ad07a")
 const BAD := Color("ff7b69")
 const SHADE := Color(0, 0, 0, 0.42) # translucent pills over the 3D view
+const GLASS := Color(0.04, 0.07, 0.05, 0.5) # tint of frosted panels over the world
+const GLASS_SHEET := Color(0.03, 0.06, 0.04, 0.82) # the full-screen window
+const LINE := Color(1, 1, 1, 0.14) # hairline borders
+
+const GlassBox := preload("res://scripts/ui/glass_box.gd")
 
 const HEALTH := Color("ff5d5d")
 const ENERGY := Color("ffd23f")
@@ -58,6 +63,21 @@ static func box(color: Color, radius := 16, pad := 12) -> StyleBoxFlat:
 	return b
 
 
+## Flat translucent box with a hairline border: cards, chips, buttons.
+static func pane(color: Color, radius := 16, pad := 12, line := LINE) -> StyleBoxFlat:
+	var b := box(color, radius, pad)
+	b.border_color = line
+	b.set_border_width_all(1)
+	return b
+
+
+## Turns a PanelContainer into frosted glass over whatever is behind it.
+static func glass(panel: PanelContainer, radius := 20.0, pad := 12.0, tint := GLASS, blur := 3.0) -> void:
+	var gb := GlassBox.new(radius, pad, tint, blur, 0.0 if radius == 0.0 else 0.16) # no hairline on full-screen sheets
+	panel.add_theme_stylebox_override("panel", gb)
+	gb.attach(panel)
+
+
 static func make_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = font()
@@ -71,33 +91,43 @@ static func make_theme() -> Theme:
 		t.set_color(state, "Button", TEXT)
 	t.set_color("font_pressed_color", "Button", TEXT.darkened(0.1))
 	t.set_color("font_disabled_color", "Button", Color(TEXT, 0.35))
-	t.set_stylebox("normal", "Button", box(CARD_HI, 18, 14))
-	t.set_stylebox("hover", "Button", box(CARD_HI.lightened(0.08), 18, 14))
-	t.set_stylebox("pressed", "Button", box(CARD_HI.darkened(0.2), 18, 14))
-	t.set_stylebox("disabled", "Button", box(Color(CARD_HI, 0.45), 18, 14))
+	# Pill buttons: translucent white with a hairline border.
+	t.set_stylebox("normal", "Button", pane(Color(1, 1, 1, 0.10), 22, 14))
+	t.set_stylebox("hover", "Button", pane(Color(1, 1, 1, 0.16), 22, 14))
+	t.set_stylebox("pressed", "Button", pane(Color(1, 1, 1, 0.05), 22, 14, Color(1, 1, 1, 0.08)))
+	t.set_stylebox("disabled", "Button", pane(Color(1, 1, 1, 0.04), 22, 14, Color(1, 1, 1, 0.06)))
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 
-	# Orange button for the main action in a row (Build, Craft, Buy…).
+	# Orange button for the main action in a row (Build, Craft, Buy…), with a
+	# darker bottom edge for a little depth.
 	t.set_type_variation("PrimaryButton", "Button")
-	t.set_stylebox("normal", "PrimaryButton", box(ACCENT, 18, 14))
-	t.set_stylebox("hover", "PrimaryButton", box(ACCENT.lightened(0.1), 18, 14))
-	t.set_stylebox("pressed", "PrimaryButton", box(ACCENT.darkened(0.2), 18, 14))
-	t.set_stylebox("disabled", "PrimaryButton", box(Color(CARD_HI, 0.45), 18, 14))
+	var primary := pane(ACCENT, 22, 14, ACCENT.lightened(0.25))
+	primary.border_width_bottom = 3
+	primary.border_color = ACCENT.darkened(0.35)
+	t.set_stylebox("normal", "PrimaryButton", primary)
+	var primary_hover := primary.duplicate()
+	primary_hover.bg_color = ACCENT.lightened(0.08)
+	t.set_stylebox("hover", "PrimaryButton", primary_hover)
+	var primary_down := primary.duplicate()
+	primary_down.bg_color = ACCENT.darkened(0.15)
+	primary_down.border_width_bottom = 1
+	t.set_stylebox("pressed", "PrimaryButton", primary_down)
+	t.set_stylebox("disabled", "PrimaryButton", pane(Color(1, 1, 1, 0.04), 22, 14, Color(1, 1, 1, 0.06)))
 	for state in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
 		t.set_color(state, "PrimaryButton", Color("2a1a08"))
 
-	t.set_stylebox("panel", "PanelContainer", box(BG, 28, 20))
+	t.set_stylebox("panel", "PanelContainer", pane(Color(1, 1, 1, 0.06), 24, 20))
 	t.set_type_variation("Card", "PanelContainer")
-	t.set_stylebox("panel", "Card", box(CARD, 18, 14))
+	t.set_stylebox("panel", "Card", pane(Color(1, 1, 1, 0.07), 18, 14, Color(1, 1, 1, 0.10)))
 	t.set_type_variation("Pill", "PanelContainer")
-	t.set_stylebox("panel", "Pill", box(SHADE, 22, 10))
+	t.set_stylebox("panel", "Pill", pane(SHADE, 22, 10))
 
-	t.set_stylebox("background", "ProgressBar", box(Color(0, 0, 0, 0.35), 6, 0))
-	t.set_stylebox("fill", "ProgressBar", box(Color.WHITE, 6, 0))
+	t.set_stylebox("background", "ProgressBar", box(Color(0, 0, 0, 0.35), 8, 0))
+	t.set_stylebox("fill", "ProgressBar", box(Color.WHITE, 8, 0))
 
 	var line := StyleBoxLine.new()
-	line.color = Color(TEXT, 0.12)
-	line.thickness = 2
+	line.color = Color(TEXT, 0.08)
+	line.thickness = 1
 	t.set_stylebox("separator", "HSeparator", line)
 
 	t.set_stylebox("scroll", "VScrollBar", box(Color(0, 0, 0, 0.2), 4, 0))

@@ -40,10 +40,10 @@ func _ready() -> void:
 	# Full-screen sheet that slides up.
 	_sheet = PanelContainer.new()
 	_sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var sheet_box := Style.box(Style.BG, 0, 20)
+	Style.glass(_sheet, 0.0, 20.0, Style.GLASS_SHEET, 4.0) # frosted over the world
+	var sheet_box: StyleBox = _sheet.get_theme_stylebox("panel")
 	sheet_box.content_margin_left = 48 # clear of the camera cutout and rounded screen corners
 	sheet_box.content_margin_right = 48
-	_sheet.add_theme_stylebox_override("panel", sheet_box)
 	add_child(_sheet)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
@@ -252,7 +252,7 @@ func _card() -> Array:
 ## A rounded square with an icon, tinted with the icon's colour.
 func _icon_tile(icon: String, color: Color, icon_size := 46.0) -> Control:
 	var tile := PanelContainer.new()
-	tile.add_theme_stylebox_override("panel", Style.box(Color(color, 0.16), 16, 10))
+	tile.add_theme_stylebox_override("panel", Style.pane(Color(color, 0.16), 16, 10, Color(color, 0.35)))
 	tile.mouse_filter = Control.MOUSE_FILTER_PASS
 	tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var ic := IconRect.new()
@@ -289,7 +289,7 @@ func _chip_row() -> HFlowContainer:
 ## on_tap, if given, runs when the chip is tapped (not dragged).
 func _chip(text: String, color: Color, note := "", on_tap := Callable(), filled := false) -> PanelContainer:
 	var chip := PanelContainer.new()
-	var box := Style.box(Color(color, 0.85) if filled else Color(0, 0, 0, 0.22), 12, 4)
+	var box := Style.pane(Color(color, 0.85) if filled else Color(1, 1, 1, 0.08), 12, 4, Color(1, 1, 1, 0.0 if filled else 0.1))
 	box.content_margin_left = 10
 	box.content_margin_right = 10
 	chip.add_theme_stylebox_override("panel", box)

@@ -12,10 +12,9 @@ var icon_color := Color.WHITE
 func _ready() -> void:
 	if custom_minimum_size == Vector2.ZERO:
 		custom_minimum_size = Vector2(74, 74)
-	var round := Style.box(Style.SHADE, 37, 0)
-	add_theme_stylebox_override("normal", round)
-	add_theme_stylebox_override("hover", Style.box(Color(Style.SHADE, 0.55), 37, 0))
-	add_theme_stylebox_override("pressed", Style.box(Color(0, 0, 0, 0.6), 37, 0))
+	add_theme_stylebox_override("normal", Style.pane(Color(0, 0, 0, 0.36), 37, 0, Color(1, 1, 1, 0.2)))
+	add_theme_stylebox_override("hover", Style.pane(Color(0, 0, 0, 0.48), 37, 0, Color(1, 1, 1, 0.3)))
+	add_theme_stylebox_override("pressed", Style.pane(Color(0, 0, 0, 0.6), 37, 0, Color(1, 1, 1, 0.12)))
 	Style.add_press_juice(self)
 
 
