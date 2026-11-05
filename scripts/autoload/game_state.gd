@@ -370,18 +370,34 @@ func _lose_health(amount: float) -> void:
 	changed.emit()
 
 
-## Food or water at 0 drains health; both at 0 drain twice as fast.
+## Inside the camp or next to an outpost campfire: starvation does no harm.
+func in_safe_zone() -> bool:
+	if Data.CAMP.has_point(player_position):
+		return true
+	for z in Data.ZONES:
+		if z["outpost"] != null and player_position.distance_to(z["outpost"]) <= Data.CAMPFIRE_SAFE_RADIUS:
+			return true
+	return false
+
+
+## Food or water at 0 drains health; both at 0 drain twice as fast. Not in a
+## safe zone: there the hunter is only reminded to eat before heading out.
 func _starve(delta: float) -> void:
 	var empty := int(hunger <= 0.0) + int(thirst <= 0.0)
 	if empty == 0 or is_dead():
 		_starve_warn_left = 0.0
 		return
-	health = maxf(0.0, health - Data.STARVE_DAMAGE * empty * delta)
+	var safe := in_safe_zone()
+	if not safe:
+		health = maxf(0.0, health - Data.STARVE_DAMAGE * empty * delta)
 	_starve_warn_left -= delta
 	if _starve_warn_left <= 0.0:
 		_starve_warn_left = 8.0
 		var need := "food and water" if empty == 2 else ("food" if hunger <= 0.0 else "water")
-		notify("You are starving! Find %s or you will collapse." % need)
+		if safe:
+			notify("You are starving. Find %s before you leave the fire." % need)
+		else:
+			notify("You are starving! Find %s or you will collapse." % need)
 	if is_dead():
 		_lose_health(0.0)
 

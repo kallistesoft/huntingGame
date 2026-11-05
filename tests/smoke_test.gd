@@ -435,10 +435,19 @@ func _test_death() -> void:
 	check(Game.storage.get("stone", 0) == 4, "give up: storage is kept")
 	check(Shapes.flat(player).distance_to(world.CAMP.get_center()) < 8.0, "give up: back at camp")
 
-	# Starvation: food and water at 0 drain health until the hunter collapses.
+	# Starvation: food and water at 0 drain health until the hunter collapses,
+	# except inside the camp or next to an outpost campfire.
 	Game.hunger = 0.0
 	Game.thirst = 0.0
 	Game.health = 10.0
+	check(Game.in_safe_zone(), "back at camp counts as a safe zone")
+	await get_tree().create_timer(1.0).timeout
+	check(Game.health == 10.0, "starving at camp does not hurt")
+	Game.player_position = Data.zone(1)["outpost"] + Vector2(2, 0)
+	check(Game.in_safe_zone(), "an outpost campfire is a safe zone")
+	player.position = Vector3(40, 0, 20)
+	Game.player_position = Vector2(40, 20)
+	check(not Game.in_safe_zone(), "the wild is not")
 	await get_tree().create_timer(1.0).timeout
 	check(Game.health < 9.0, "starving drains health")
 	Game.health = 0.5
