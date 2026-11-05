@@ -187,6 +187,28 @@ func _build_structure(tier: int) -> void:
 			elif tier == 1: # the kit's army-green canvas becomes stitched hides
 				Models.paint(home, ["Green"], Color(0.66, 0.5, 0.3))
 				Models.paint(home, ["LightGreen"], Color(0.78, 0.62, 0.4))
+		"tailor":
+			# Tier 1: a dyed canvas tent. Tier 2: a stool and a cloth rack
+			# beside it. Tier 3: a plank hut with crates of cloth. Tier 4: a
+			# timber workshop with barrels of dye.
+			var id: String = ["tent", "tent", "shack", "house"][clampi(tier, 1, 4) - 1]
+			var shop := _building(id, [2.2, 2.2, 2.5, 2.8][clampi(tier, 1, 4) - 1])
+			if shop == null:
+				_build_tailor_shapes(tier, wood, dark)
+			elif tier <= 2: # the kit's army-green canvas becomes dyed cloth
+				Models.paint(shop, ["Green"], Color(0.36, 0.46, 0.62))
+				Models.paint(shop, ["LightGreen"], Color(0.55, 0.64, 0.78))
+			if tier >= 2: # cloth rack and stool
+				for x in [-1, 1]:
+					Shapes.add(_model, Shapes.box(Vector3(0.1, 1.3, 0.1)), wood, Vector3(r * 1.5 + x * 0.5, 0.65, 0.4))
+				Shapes.add(_model, Shapes.box(Vector3(1.1, 0.06, 0.06)), dark, Vector3(r * 1.5, 1.3, 0.4))
+				Shapes.add(_model, Shapes.box(Vector3(0.9, 0.8, 0.04)), Color(0.72, 0.4, 0.38), Vector3(r * 1.5, 0.9, 0.4))
+				Shapes.add(_model, Shapes.cylinder(0.2, 0.4), wood, Vector3(r * 1.3, 0.2, -0.6))
+			if tier >= 3:
+				_building("crate", 0.7, Vector3(-r * 1.3, 0, r * 0.9))
+			if tier >= 4:
+				for i in 2:
+					_building("barrel", 0.75, Vector3(-r * 1.4, 0, -r * 0.4 + i * 0.7))
 		"tanning":
 			# One stretched hide per tier, plus a drying line at tier 3. No kit
 			# has a tanning rack, so this one stays code-built.
@@ -277,6 +299,17 @@ func _build_storage_shapes(tier: int, wood: Color, dark: Color) -> void:
 		var roof := PrismMesh.new()
 		roof.size = Vector3(r * 2.4, 0.9, r * 2.0)
 		Shapes.add(_model, roof, Color(0.5, 0.18, 0.12), Vector3(0, h + 0.45, 0))
+
+
+## A canvas ridge tent: two leaning panels on a pole, bigger with the tier.
+func _build_tailor_shapes(tier: int, wood: Color, dark: Color) -> void:
+	var cloth := Color(0.36, 0.46, 0.62) if tier <= 2 else Color(0.6, 0.45, 0.3)
+	var w := 1.6 + tier * 0.2
+	for x in [-1, 1]:
+		var panel := Shapes.add(_model, Shapes.box(Vector3(w * 0.75, 0.05, w)), cloth, Vector3(x * w * 0.3, 0.65, 0))
+		panel.rotation_degrees.z = -x * 55.0
+	Shapes.add(_model, Shapes.cylinder(0.05, 1.3), wood, Vector3(0, 0.65, 0))
+	Shapes.add(_model, Shapes.box(Vector3(0.06, 0.06, w)), dark, Vector3(0, 1.3, 0))
 
 
 func _build_house_shapes(tier: int, dark: Color, stone: Color) -> void:

@@ -293,7 +293,7 @@ func _test_batch_pin_and_speed_up() -> void:
 func _test_panels() -> void:
 	print("UI panels")
 	var panel: Control = world.hud._panel
-	for kind in ["crafting", "storage", "house", "board"]:
+	for kind in ["crafting", "tailor", "storage", "house", "board"]:
 		world.hud.open_station(kind)
 		await _frames(2)
 		check(panel.visible and panel._content.get_child_count() > 0, "%s panel has content" % kind)
@@ -638,6 +638,18 @@ func _test_gear_chain() -> void:
 	check(Game.build_blocker("crafting") == "Needs house tier 1", "crafting place tier 2 waits for the house")
 	Game.dev_set_tier("house", 1)
 	Game.dev_set_tier("crafting", 2)
+	Game.dev_set_tier("tailor", 0)
+	check(Game.craft_blocker("fibre_wraps") != "", "no gear without the tailor's tent")
+	Game.dev_set_tier("tailor", 2)
+	for id in Data.RECIPES:
+		var r: Dictionary = Data.RECIPES[id]
+		check(Data.STRUCTURES.has(r["station"]), "%s is crafted at a station that exists" % id)
+		if r.has("tool") and Data.TOOLS[r["tool"]]["slot"] in ["head", "body", "feet", "bag"]:
+			check(r["station"] == "tailor", "%s is made at the tailor's tent" % id)
+		else:
+			check(r["station"] != "tailor", "%s is not made at the tailor's tent" % id)
+	var tent := _nearest(func(n: Node) -> bool: return n.get("kind") == "tailor")
+	check(tent != null and tent.action_label() == "Open tailor's tent", "the camp has a tailor's tent")
 	Game.storage = {"fibre": 30, "hide": 6, "bone": 8, "fur": 12, "wood": 20, "stone": 10, "leather": 10, "tusk": 1}
 	var tree := _nearest(func(n: Node) -> bool: return n.get("kind") == "grass" and n.is_available())
 	check(tree != null, "tall grass grows in the meadow")
@@ -648,6 +660,7 @@ func _test_gear_chain() -> void:
 	check(Game.storage.get("rope", 0) >= 3 and Game.storage.get("leather", 0) >= 12, "rope and leather delivered to storage")
 	var base_speed := Game.move_speed()
 	Game.start_craft("fibre_wraps")
+	check(Game.craft_jobs.has("tailor") and not Game.craft_jobs.has("crafting"), "wraps are sewn at the tailor's tent")
 	await _finish_timers()
 	check(Game.has_tool("fibre_wraps") and Game.move_speed() > base_speed * 1.1, "fibre wraps make the hunter faster")
 	Game.start_craft("leather_boots")
@@ -698,3 +711,14 @@ func _test_save_load() -> void:
 	f.close()
 	Game.load_game()
 	check(Game.bosses_defeated == ["boar"], "old boss_defeated flag migrates to the list")
+	# A save from before the tailor's tent opens it at the crafting place's tier.
+	f = FileAccess.open(Game.SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"version": 1, "structures": {"crafting": {"tier": 2}}}))
+	f.close()
+	Game.load_game()
+	check(Game.structure_tier("tailor") == 2 and not Game.structure_busy("tailor"), "old save gets the tailor's tent at the crafting place's tier")
+	f = FileAccess.open(Game.SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"version": 1, "structures": {"crafting": {"tier": 3}, "tailor": {"tier": 1}}}))
+	f.close()
+	Game.load_game()
+	check(Game.structure_tier("tailor") == 1, "a save that knows the tailor's tent keeps its tier")
