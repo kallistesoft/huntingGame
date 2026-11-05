@@ -579,6 +579,10 @@ func _build_dev_menu() -> void:
 	for l in [1, 3, 5, 8, 13, 18, Data.LEVEL_XP.size()]:
 		levels.append(["Lv %d" % l, Game.level != l, Game.dev_set_level.bind(l)])
 	_row("Level %d" % Game.level, levels)
+	var gear := [["None", true, Game.dev_set_gear.bind(0)]]
+	for t in range(1, 5):
+		gear.append(["Tier %d" % t, Game.gear_tier("body") != t, Game.dev_set_gear.bind(t)])
+	_row("Equipment: every piece of one tier (replaces what you own).", gear)
 	_row("Finish every running timer now.", [["Finish", true, Game.dev_finish_timers]])
 	_row("Day/night: move the clock forward.", [["+3 min", true, Game.dev_advance_time.bind(180.0)]])
 	_row("Forget which recipes you have seen (NEW badges come back).", [["Reset", true, Game.dev_reset_seen]])

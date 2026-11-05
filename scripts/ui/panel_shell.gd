@@ -192,10 +192,21 @@ func _row(text: String, buttons: Array) -> void:
 	col.add_theme_constant_override("separation", 2)
 	row.add_child(col)
 	for i in lines.size():
-		col.add_child(_make_label(lines[i], Style.TEXT if i == 0 else Style.MUTED, 22 if i == 0 else 17, i == 0))
+		var l := _make_label(lines[i], Style.TEXT if i == 0 else Style.MUTED, 22 if i == 0 else 17, i == 0)
+		l.custom_minimum_size.x = 200 # wrap rather than widen the card past the screen
+		col.add_child(l)
+	# Up to three buttons sit on the text's line; more (the Dev menu's tier,
+	# level and teleport rows) wrap onto lines of their own.
+	var holder: Container = row
+	if buttons.size() > 3:
+		holder = HFlowContainer.new()
+		holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		holder.add_theme_constant_override("h_separation", 10)
+		holder.add_theme_constant_override("v_separation", 8)
+		col.add_child(holder)
 	for i in buttons.size():
 		var b: Array = buttons[i]
-		row.add_child(_button(b[0], b[1], b[2], i == 0))
+		holder.add_child(_button(b[0], b[1], b[2], i == 0))
 	_place(parts[0])
 
 

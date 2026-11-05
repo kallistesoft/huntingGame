@@ -31,6 +31,28 @@ and page. Triangle counts are as listed by Poly Pizza.
 | quaternius/crate.glb | Crate | Quaternius | https://poly.pizza/m/3VGWnZPXmG | 784 |
 | quaternius/barrel.glb | Barrel | Quaternius | https://poly.pizza/m/MraIiFnpAY | 882 |
 | kenney/anvil.glb | Workbench Anvil | Kenney | https://poly.pizza/m/bY1pp3kAAb | 258 |
+| quaternius/tent.glb | Tent | Quaternius | https://poly.pizza/m/5Q7qIrfDxA | 784 |
+| quaternius/shack.glb | Shack | Quaternius | https://poly.pizza/m/dlMcSexDWI | 804 |
+| quaternius/house.glb | House | Quaternius | https://poly.pizza/m/oJJIRwv6Bo | 2336 |
+| quaternius/storage_hut.glb | Storage Hut | Quaternius | https://poly.pizza/m/BsTn4bKSGb | 4088 |
+| quaternius/storage_shed.glb | Storage shed | Quaternius | https://poly.pizza/m/fkTsDdpQAA | 8160 |
+| quaternius/gazebo.glb | Gazebo | Quaternius | https://poly.pizza/m/xYZB1TmGMv | 698 |
+| quaternius/sawmill_logs.glb | Sawmill | Quaternius | https://poly.pizza/m/UTJHANd25O | 830 |
+| quaternius/sawmill_house.glb | Fantasy Sawmill | Quaternius | https://poly.pizza/m/alxTTFjKDM | 4219 |
+| quaternius/fireplace.glb | Fireplace | Quaternius | https://poly.pizza/m/nzxZYIOCIr | 360 |
+| quaternius/blacksmith.glb | Blacksmith | Quaternius | https://poly.pizza/m/bV52eTG1Aj | 7659 |
+| kenney/workbench.glb | Workbench | Kenney | https://poly.pizza/m/pX3YnfKa6Q | 226 |
+| kenney/workbench_grind.glb | Workbench Grind | Kenney | https://poly.pizza/m/hnxYRW4Nx3 | 460 |
+| quaternius/adventurer.glb | Adventurer (animated) | Quaternius | https://poly.pizza/m/5EGWBMpuXq | 3388 |
+| quaternius/hooded_adventurer.glb | Hooded Adventurer (animated; only its hood is used) | Quaternius | https://poly.pizza/m/y9KWOVG21R | 3412 |
+| quaternius/armor_leather.glb | Armor Leather | Quaternius | https://poly.pizza/m/na9KfWiKN8 | 288 |
+| quaternius/armor_metal.glb | Armor Metal | Quaternius | https://poly.pizza/m/TMUoxILh9w | 704 |
+| quaternius/bag.glb | Bag | Quaternius | https://poly.pizza/m/Wq1JPPqHZS | 1232 |
+| quaternius/backpack.glb | Backpack | Quaternius | https://poly.pizza/m/2g9Jm7kvIU | 1748 |
+| quaternius/spear.glb | Spear | Quaternius | https://poly.pizza/m/fH1zmvjPNx | 1202 |
+| quaternius/bow.glb | Wooden Bow | Quaternius | https://poly.pizza/m/QnpqjLSKFU | 660 |
+| kenney/tool_axe.glb | Tool Axe | Kenney | https://poly.pizza/m/GPE2JUkbfW | 144 |
+| kenney/pickaxe.glb | Pickaxe | Kenney | https://poly.pizza/m/UHZH2OoWCS | 100 |
 
 Quaternius: https://quaternius.com · Kenney: https://kenney.nl
 

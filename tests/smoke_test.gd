@@ -654,7 +654,7 @@ func _test_gear_chain() -> void:
 	await _finish_timers()
 	check(Game.has_tool("leather_boots") and not Game.has_tool("fibre_wraps"), "boots upgrade consumed the wraps")
 	await _frames(2)
-	check(player._gear.get_child_count() >= 2, "boots show on the hunter")
+	check(player.wears("feet") and player.wears("weapon"), "boots and the spear show on the hunter")
 	check(Game.equipped("feet") == "leather_boots" and Game.move_speed() > base_speed * 1.25, "leather boots are equipped and faster")
 	Game.tools["fur_tunic"] = true
 	Game.start_craft("leather_armor")

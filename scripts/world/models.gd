@@ -35,6 +35,30 @@ const MODELS := {
 	"crate": "res://assets/models/quaternius/crate.glb",
 	"barrel": "res://assets/models/quaternius/barrel.glb",
 	"anvil": "res://assets/models/kenney/anvil.glb",
+	# buildings, one or more per tier (station.gd)
+	"tent": "res://assets/models/quaternius/tent.glb",
+	"shack": "res://assets/models/quaternius/shack.glb",
+	"house": "res://assets/models/quaternius/house.glb",
+	"storage_hut": "res://assets/models/quaternius/storage_hut.glb",
+	"storage_shed": "res://assets/models/quaternius/storage_shed.glb",
+	"workbench": "res://assets/models/kenney/workbench.glb",
+	"workbench_grind": "res://assets/models/kenney/workbench_grind.glb",
+	"gazebo": "res://assets/models/quaternius/gazebo.glb",
+	"sawmill_logs": "res://assets/models/quaternius/sawmill_logs.glb",
+	"sawmill_house": "res://assets/models/quaternius/sawmill_house.glb",
+	"fireplace": "res://assets/models/quaternius/fireplace.glb",
+	"blacksmith": "res://assets/models/quaternius/blacksmith.glb",
+	# the hunter (animated) and what they wear or hold (player.gd)
+	"adventurer": "res://assets/models/quaternius/adventurer.glb",
+	"hooded_adventurer": "res://assets/models/quaternius/hooded_adventurer.glb",
+	"armor_leather": "res://assets/models/quaternius/armor_leather.glb",
+	"armor_metal": "res://assets/models/quaternius/armor_metal.glb",
+	"bag": "res://assets/models/quaternius/bag.glb",
+	"backpack": "res://assets/models/quaternius/backpack.glb",
+	"spear": "res://assets/models/quaternius/spear.glb",
+	"bow": "res://assets/models/quaternius/bow.glb",
+	"tool_axe": "res://assets/models/kenney/tool_axe.glb",
+	"pickaxe": "res://assets/models/kenney/pickaxe.glb",
 }
 
 static var _scenes := {} # id -> PackedScene or null once tried
@@ -66,6 +90,22 @@ static func spawn(id: String, parent: Node3D, height := 0.0, pos := Vector3.ZERO
 		box = bounds(node)
 	# Feet on the ground, centred on the parent.
 	node.position = pos + Vector3(-box.get_center().x, -box.position.y, -box.get_center().z) * 1.0
+	return node
+
+
+## Like spawn(), but scaled so the model's wider horizontal side is `width`
+## metres: buildings have to fit their plot whatever their roof height.
+static func spawn_fit(id: String, parent: Node3D, width: float, pos := Vector3.ZERO) -> Node3D:
+	var node := spawn(id, parent, 0.0, pos)
+	if node == null:
+		return null
+	var box := bounds(node)
+	var side := maxf(box.size.x, box.size.z)
+	if side > 0.001:
+		node.scale = Vector3.ONE * (width / side)
+		node.position = Vector3.ZERO
+		box = bounds(node)
+		node.position = pos - Vector3(box.get_center().x, box.position.y, box.get_center().z)
 	return node
 
 
@@ -128,6 +168,80 @@ static func tint(node: Node, color: Color) -> void:
 				var d: BaseMaterial3D = m.duplicate()
 				d.albedo_color = d.albedo_color * color
 				mi.set_surface_override_material(i, d)
+
+
+## Repaints the surfaces whose material is named in `names` (the kit's own
+## names: "Steel", "Green"...) with a flat colour; the other surfaces keep
+## theirs. Unlike tint() this can lighten, so a dark shirt can become fur.
+static func paint(node: Node, names: Array, color: Color) -> void:
+	for mi in meshes(node):
+		for i in mi.get_surface_override_material_count():
+			var m: Material = mi.get_active_material(i)
+			if m is BaseMaterial3D and m.resource_name in names:
+				var d: BaseMaterial3D = m.duplicate()
+				d.albedo_color = color
+				mi.set_surface_override_material(i, d)
+
+
+## Makes the named surfaces invisible (hair under a helmet). A surface can't
+## be hidden on its own, so it gets a fully transparent material.
+static func hide_surfaces(node: Node, names: Array) -> void:
+	for mi in meshes(node):
+		for i in mi.get_surface_override_material_count():
+			var m: Material = mi.get_active_material(i)
+			if m != null and m.resource_name in names:
+				var d := StandardMaterial3D.new()
+				d.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				d.albedo_color = Color(0, 0, 0, 0)
+				d.no_depth_test = true
+				mi.set_surface_override_material(i, d)
+
+
+## Plays a clip once at a speed that makes it last `duration` seconds, then
+## holds its last frame. Returns the name played, or "".
+static func play_once(anim: AnimationPlayer, hints: Array, duration := 0.0) -> String:
+	if anim == null:
+		return ""
+	for hint in hints:
+		for name in anim.get_animation_list():
+			if String(name).to_lower().contains(String(hint).to_lower()):
+				var a := anim.get_animation(name)
+				a.loop_mode = Animation.LOOP_NONE
+				anim.speed_scale = a.length / duration if duration > 0.0 else 1.0
+				anim.play(name)
+				anim.seek(0.0, true)
+				return String(name)
+	return ""
+
+
+## One skinned surface of a model, moved onto another skeleton: the hood of
+## the hooded adventurer on the hunter. Both must share the same rig (the
+## bind poses are matched by bone name). Returns null when anything is off.
+static func borrow_surface(id: String, mesh_name: String, material_name: String, skeleton: Skeleton3D) -> MeshInstance3D:
+	var scene := _scene(id)
+	if scene == null:
+		return null
+	var donor: Node = scene.instantiate()
+	var src: MeshInstance3D = null
+	for mi in meshes(donor):
+		if mi.name == mesh_name and mi.skin != null:
+			src = mi
+	var out: MeshInstance3D = null
+	if src != null:
+		var mesh := ArrayMesh.new()
+		for i in src.mesh.get_surface_count():
+			var m := src.mesh.surface_get_material(i)
+			if m != null and m.resource_name == material_name:
+				mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, src.mesh.surface_get_arrays(i))
+				mesh.surface_set_material(mesh.get_surface_count() - 1, m)
+		if mesh.get_surface_count() > 0:
+			out = MeshInstance3D.new()
+			out.mesh = mesh
+			out.skin = src.skin
+			skeleton.add_child(out)
+			out.skeleton = out.get_path_to(skeleton)
+	donor.free()
+	return out
 
 
 ## Sets a material overlay on every mesh (the white hit flash) or clears it.
