@@ -193,9 +193,16 @@ func _row(text: String, buttons: Array) -> void:
 	row.add_child(col)
 	for i in lines.size():
 		col.add_child(_make_label(lines[i], Style.TEXT if i == 0 else Style.MUTED, 22 if i == 0 else 17, i == 0))
+	# Up to three buttons sit beside the text; more wrap under it (Dev rows).
+	var into: Container = row
+	if buttons.size() > 3:
+		into = HFlowContainer.new()
+		into.add_theme_constant_override("h_separation", 8)
+		into.add_theme_constant_override("v_separation", 8)
+		col.add_child(into)
 	for i in buttons.size():
 		var b: Array = buttons[i]
-		row.add_child(_button(b[0], b[1], b[2], i == 0))
+		into.add_child(_button(b[0], b[1], b[2], i == 0))
 	_place(parts[0])
 
 
