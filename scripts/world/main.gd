@@ -38,6 +38,9 @@ var _taken: Array[Vector3] = [] # x, z, radius of placed props, to keep them apa
 
 func _ready() -> void:
 	_rng.seed = WORLD_SEED
+	if OS.has_feature("mobile"):
+		var screen: Vector2i = DisplayServer.screen_get_size()
+		get_window().content_scale_factor = Style.ui_scale(float(mini(screen.x, screen.y)), float(DisplayServer.screen_get_dpi()))
 	_add_environment()
 
 	var ground := Ground.new()
