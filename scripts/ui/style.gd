@@ -40,6 +40,18 @@ static var _font: FontFile
 static var _font_bold: FontFile
 
 
+## UI scale for the device. The project's 1.35 is tuned for a phone (the
+## owner's: 2424×1080 at 420 dpi); a tablet has far more inches for the same
+## 720 UI rows, so it scales down to 1.0 and keeps the same physical size of
+## text, which stops the stats card from covering 40% of a 16:10 screen.
+const PHONE_UNIT_INCHES := 1.35 * (1080.0 / 720.0) / 420.0
+static func ui_scale(screen_height_px: float, dpi: float) -> float:
+	if screen_height_px <= 0.0 or dpi <= 0.0:
+		return 1.35
+	var px_per_unit := screen_height_px / 720.0
+	return clampf(PHONE_UNIT_INCHES * dpi / px_per_unit, 1.0, 1.35)
+
+
 static func font() -> Font:
 	if _font == null:
 		_font = load("res://assets/fonts/nunito-semibold.woff2")
