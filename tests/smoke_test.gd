@@ -448,6 +448,15 @@ func _test_death() -> void:
 	check(Game.hunger >= Data.WAKE_NEEDS and Game.thirst >= Data.WAKE_NEEDS, "waking at home restores some food and water")
 	await _frames(2)
 
+	# A save written while knocked out loads with 0 health and no `died`
+	# signal; the HUD must still show the knocked-out screen.
+	Game.health = 0.0
+	await _frames(2)
+	check(world.hud._death_screen.visible, "knocked-out screen shown for a save loaded at 0 health")
+	Game.give_up()
+	await _frames(2)
+	check(not world.hud._death_screen.visible, "knocked-out screen closed after giving up")
+
 
 func _test_boss_and_pass() -> void:
 	print("Boss and mountain pass")
