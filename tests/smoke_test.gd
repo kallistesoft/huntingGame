@@ -167,13 +167,18 @@ func _test_energy_sleep_and_ad() -> void:
 	check(not Game.is_sleeping() and Game.energy == Game.max_energy(), "woke up with full energy")
 
 	Game.energy = 0.0
+	Game.health = 40.0
 	Game.start_sleep()
 	Game.watch_ad_for_energy()
 	check(AdService.is_showing(), "placeholder ad is showing")
 	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
-	check(Game.energy == Data.AD_ENERGY_REWARD, "ad gave +10 energy")
 	check(not Game.is_sleeping(), "ad woke the hunter up")
+	check(Game.energy == Game.max_energy() and Game.health == Game.max_health(), "ad while asleep: fully rested")
 	check(Game.ads_left_today() == Data.ADS_PER_DAY - 1, "daily ad count went down")
+	Game.energy = 0.0
+	Game.watch_ad_for_energy()
+	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
+	check(Game.energy == Data.AD_ENERGY_REWARD, "ad while awake: +10 energy")
 
 
 func _test_pack_and_storage() -> void:

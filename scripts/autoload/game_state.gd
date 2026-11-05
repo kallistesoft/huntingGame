@@ -607,10 +607,13 @@ func _on_energy_ad_done(rewarded: bool) -> void:
 		return
 	_roll_ad_day()
 	ads_today += 1
-	var was_sleeping := is_sleeping()
-	sleep_until = 0.0
-	energy = minf(max_energy(), energy + Data.AD_ENERGY_REWARD)
-	notify("+%d energy%s" % [Data.AD_ENERGY_REWARD, " — you get up" if was_sleeping else ""])
+	if is_sleeping():
+		# Owner's rule (2026-11-05): an ad while asleep ends the night at once,
+		# fully rested, as if the timer had run out.
+		_wake_up()
+	else:
+		energy = minf(max_energy(), energy + Data.AD_ENERGY_REWARD)
+		notify("+%d energy" % Data.AD_ENERGY_REWARD)
 	changed.emit()
 	save_game()
 
@@ -871,12 +874,17 @@ func craft_total(station: String) -> float:
 	return job["total"] if not job.is_empty() else 1.0
 
 
+## The night is over: full energy and health.
+func _wake_up() -> void:
+	sleep_until = 0.0
+	energy = max_energy()
+	health = max_health()
+	notify("You wake up rested.")
+
+
 func _update_timers(t: float) -> void:
 	if sleep_until > 0.0 and t >= sleep_until:
-		sleep_until = 0.0
-		energy = max_energy()
-		health = max_health()
-		notify("You wake up rested.")
+		_wake_up()
 		changed.emit()
 
 	for id in structures:
