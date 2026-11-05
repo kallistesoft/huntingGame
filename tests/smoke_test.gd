@@ -349,19 +349,24 @@ func _test_collect_quest() -> void:
 		if all[i]["target"] == "rabbit:fur" and all[i]["count"] == 10:
 			Game.quest_index = i + 1
 
-	# XP arc: each zone's quests and boss should carry the hunter most of the
-	# way to the next gate; hunting covers the rest.
+	# XP arc (tools/xp_budget.gd prints the full table): the rewards of a
+	# zone's line and its boss should bring the hunter close to the next gate,
+	# the gathering and hunting they force covering the rest, and the rewards
+	# before the boss fight must not pass the gate on their own, so the new
+	# zone opens with the boss, not halfway through the line.
 	var total := 0
 	for i in Data.ZONES.size():
 		var z: Dictionary = Data.ZONES[i]
-		for quest in all:
-			if quest["zone"] == z["id"]:
-				total += quest["xp"]
-		if z["boss"] != "":
-			total += Data.BOSSES[z["boss"]]["xp"]
 		var gate: Dictionary = Data.zone(i + 1)
 		var need: int = Data.LEVEL_XP[gate["unlock"]["level"] - 1]
-		check(total >= need * 0.6, "%s: quests + boss give %d XP of the %d needed for the next gate" % [z["name"], total, need])
+		for quest in all:
+			if quest["zone"] != z["id"]:
+				continue
+			if quest["type"] == "boss":
+				check(total < need, "%s: %d XP of rewards before the boss stay under the %d of the next gate" % [z["name"], total, need])
+				total += Data.BOSSES[quest["target"]]["xp"]
+			total += quest["xp"]
+		check(total >= need * 0.7, "%s: quests + boss give %d XP of the %d needed for the next gate" % [z["name"], total, need])
 
 
 func _test_levels_and_zone() -> void:
