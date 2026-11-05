@@ -15,7 +15,7 @@ const REVIVE_GRACE := 2.0 # seconds the hunter can't be hit after getting back u
 const STARVE_DAMAGE := 1.0 # health lost per second for each of food/water at 0
 ## Starvation never hurts inside the camp or near an outpost campfire: the
 ## hunter can always make it home and cook something.
-const CAMP := Rect2(5.5, 11, 16, 10.5) # the home camp clearing, zone 1
+const CAMP := Rect2(5.5, 11, 18.5, 10.5) # the home camp clearing, zone 1
 const CAMPFIRE_SAFE_RADIUS := 6.0 # metres around an outpost's spot
 const WAKE_NEEDS := 50.0 # food and water after giving up and waking at home
 const HUNGER_PER_SEC := 100.0 / 480.0 # full to empty in 8 minutes
@@ -40,7 +40,7 @@ const ADS_PER_DAY := 10
 ## The curve follows the quest lines (tools/xp_budget.gd prints where each
 ## level lands): a zone's level gate is reached around its boss fight, so a
 ## new zone opens when the previous line is nearly done, not halfway through.
-const LEVEL_XP := [0, 60, 200, 450, 900, 1250, 1600, 2000, 2600, 3300, 3800, 4400, 4900, 5800, 6800, 7400, 8000, 8700, 9500, 10500]
+const LEVEL_XP := [0, 60, 200, 450, 900, 1250, 1600, 2400, 3000, 3600, 4300, 5000, 5800, 6600, 7400, 8300, 9200, 10000, 11000, 12200]
 
 # --- Zones -------------------------------------------------------------------
 
@@ -135,10 +135,27 @@ const ITEMS := {
 	"silver_ore": {"name": "Silver ore", "weight": 2.0, "category": "materials"},
 	"silver_bar": {"name": "Silver bar", "weight": 1.5, "category": "materials"},
 	"thick_fur": {"name": "Thick fur", "weight": 0.5, "category": "materials"},
-	"berries": {"name": "Berries", "weight": 0.2, "food": 8.0, "category": "food"},
+	# Food: "food" and "water" are the share of the bar restored. Dishes from
+	# the kitchen may carry "buffs" (see BUFFS): {kind, amount, minutes}.
+	"berries": {"name": "Berries", "weight": 0.2, "food": 8.0, "water": 4.0, "category": "food"},
 	"raw_meat": {"name": "Raw meat", "weight": 0.5, "food": 12.0, "category": "food"},
 	"cooked_meat": {"name": "Cooked meat", "weight": 0.4, "food": 35.0, "category": "food"},
 	"herbs": {"name": "Mountain herbs", "weight": 0.1, "food": 6.0, "heal": 30.0, "category": "food"},
+	"berry_mash": {"name": "Berry mash", "weight": 0.3, "food": 25.0, "water": 10.0, "category": "food"},
+	"skewer": {"name": "Meat skewer", "weight": 0.4, "food": 40.0, "category": "food",
+		"buffs": [{"kind": "speed", "amount": 0.10, "minutes": 3}]},
+	"bone_broth": {"name": "Bone broth", "weight": 0.5, "food": 30.0, "water": 30.0, "category": "food",
+		"buffs": [{"kind": "hunger_slow", "amount": 0.25, "minutes": 4}]},
+	"stew": {"name": "Hunter's stew", "weight": 0.6, "food": 60.0, "category": "food",
+		"buffs": [{"kind": "power", "amount": 0.25, "minutes": 3}]},
+	"herb_roast": {"name": "Herb roast", "weight": 0.5, "food": 55.0, "category": "food",
+		"buffs": [{"kind": "regen", "amount": 3.0, "minutes": 4}]},
+	"mountain_tea": {"name": "Mountain tea", "weight": 0.3, "water": 40.0, "category": "food",
+		"buffs": [{"kind": "energy_save", "amount": 0.25, "minutes": 4}]},
+	"feast": {"name": "Northern feast", "weight": 1.0, "food": 100.0, "water": 20.0, "category": "food",
+		"buffs": [{"kind": "speed", "amount": 0.15, "minutes": 5}, {"kind": "power", "amount": 0.25, "minutes": 5}]},
+	"pemmican": {"name": "Pemmican", "weight": 0.3, "food": 50.0, "category": "food",
+		"buffs": [{"kind": "carry", "amount": 10.0, "minutes": 5}]},
 	"hide": {"name": "Hide", "weight": 0.6, "category": "animal"},
 	"fur": {"name": "Fur", "weight": 0.3, "category": "animal"},
 	"antler": {"name": "Antler", "weight": 0.8, "category": "animal"},
@@ -154,7 +171,23 @@ const ITEMS := {
 }
 
 ## Food eaten by the quick "Eat" button, best first.
-const FOOD_ORDER := ["cooked_meat", "raw_meat", "berries"]
+## What the HUD's Eat button eats first: plain food before the dishes that
+## carry a buff, so a buff is not wasted on a snack.
+const FOOD_ORDER := ["cooked_meat", "berry_mash", "raw_meat", "berries", "skewer", "stew", "herb_roast", "pemmican", "bone_broth", "feast"]
+
+## Timed bonuses from kitchen dishes. "max" caps what any dish can give, so
+## food stays a helping hand and not a cheat; "unit" formats the amount.
+## A kind never stacks with itself (eating it again restarts the timer) and
+## at most MAX_BUFFS kinds run at once.
+const BUFFS := {
+	"speed": {"name": "Swift", "max": 0.15, "unit": "Speed +%d%%", "percent": true},
+	"power": {"name": "Strong", "max": 0.25, "unit": "Damage +%d%%", "percent": true},
+	"energy_save": {"name": "Steady", "max": 0.25, "unit": "Energy costs −%d%%", "percent": true},
+	"regen": {"name": "Healing", "max": 3.0, "unit": "Health regen ×%d", "percent": false},
+	"hunger_slow": {"name": "Full", "max": 0.25, "unit": "Hunger %d%% slower", "percent": true},
+	"carry": {"name": "Pack mule", "max": 10.0, "unit": "Carry +%d kg", "percent": false},
+}
+const MAX_BUFFS := 3
 
 ## Equipment: owned once, not carried as weight. Each piece fills a slot; the
 ## highest tier owned in a slot is the one in use (Game.equipped). Tier = the
@@ -318,7 +351,17 @@ const RECIPES := {
 	"spear": {"tool": "spear", "tier": 1, "station": "crafting", "time": 10.0, "cost": {"wood": 3, "stone": 1}},
 	"stone_axe": {"tool": "stone_axe", "tier": 1, "station": "crafting", "time": 15.0, "cost": {"wood": 2, "stone": 2}},
 	"stone_pick": {"tool": "stone_pick", "tier": 1, "station": "crafting", "time": 15.0, "cost": {"wood": 2, "stone": 3}},
-	"cooked_meat": {"item": "cooked_meat", "count": 1, "tier": 1, "station": "crafting", "time": 5.0, "cost": {"raw_meat": 1, "wood": 1}},
+	# Kitchen: tier = the zone whose food goes in; times grow so the queue and
+	# the speed-up ad matter at the top end.
+	"cooked_meat": {"item": "cooked_meat", "count": 1, "tier": 1, "station": "kitchen", "time": 5.0, "cost": {"raw_meat": 1, "wood": 1}},
+	"berry_mash": {"item": "berry_mash", "count": 1, "tier": 1, "station": "kitchen", "time": 6.0, "cost": {"berries": 3}},
+	"skewer": {"item": "skewer", "count": 1, "tier": 1, "station": "kitchen", "time": 12.0, "cost": {"cooked_meat": 1, "berries": 2, "wood": 1}},
+	"bone_broth": {"item": "bone_broth", "count": 1, "tier": 2, "station": "kitchen", "time": 30.0, "cost": {"bone": 1, "raw_meat": 1, "wood": 1}},
+	"stew": {"item": "stew", "count": 1, "tier": 2, "station": "kitchen", "time": 40.0, "cost": {"raw_meat": 2, "berries": 2, "wood": 2}},
+	"herb_roast": {"item": "herb_roast", "count": 1, "tier": 3, "station": "kitchen", "time": 60.0, "cost": {"raw_meat": 1, "herbs": 2, "wood": 2}},
+	"mountain_tea": {"item": "mountain_tea", "count": 1, "tier": 3, "station": "kitchen", "time": 45.0, "cost": {"herbs": 2, "wood": 1}},
+	"feast": {"item": "feast", "count": 1, "tier": 4, "station": "kitchen", "time": 120.0, "cost": {"raw_meat": 4, "herbs": 2, "berries": 3, "wood": 3}},
+	"pemmican": {"item": "pemmican", "count": 2, "tier": 4, "station": "kitchen", "time": 90.0, "cost": {"cooked_meat": 2, "berries": 2}},
 	"rope": {"item": "rope", "count": 1, "tier": 1, "station": "crafting", "time": 8.0, "cost": {"fibre": 3}},
 	"fur_hood": {"tool": "fur_hood", "tier": 1, "station": "tailor", "time": 15.0, "cost": {"fur": 4}},
 	"fur_tunic": {"tool": "fur_tunic", "tier": 1, "station": "tailor", "time": 25.0, "cost": {"fur": 6, "rope": 1}},
@@ -382,6 +425,12 @@ const STRUCTURES := {
 		{"cost": {"wood": 15, "stone": 8, "leather": 4, "thick_leather": 1}, "time": 240.0, "level": 4, "house_tier": 2},
 		{"cost": {"wood": 20, "stone": 12, "thick_leather": 3, "silver_bar": 1}, "time": 400.0, "level": 13, "house_tier": 3},
 	]},
+	"kitchen": {"name": "Kitchen", "tiers": [ # food; same gates as the crafting place, cheaper
+		{"cost": {"wood": 6, "stone": 4}, "time": 10.0, "level": 1, "house_tier": 0},
+		{"cost": {"wood": 8, "stone": 8, "rope": 2, "leather": 1}, "time": 100.0, "level": 2, "house_tier": 1},
+		{"cost": {"wood": 15, "stone": 12, "leather": 2, "iron_bar": 1}, "time": 240.0, "level": 4, "house_tier": 2},
+		{"cost": {"wood": 20, "stone": 15, "iron_bar": 2, "silver_bar": 1}, "time": 400.0, "level": 13, "house_tier": 3},
+	]},
 	"storage": {"name": "Storage", "tiers": [
 		{"cost": {"wood": 8}, "time": 15.0, "level": 1, "house_tier": 0, "capacity": 50.0},
 		{"cost": {"wood": 15, "stone": 8, "rope": 2}, "time": 120.0, "level": 2, "house_tier": 1, "capacity": 150.0},
@@ -429,6 +478,7 @@ const QUEST_LINES := {
 		{"text": "Tan 1 leather", "type": "craft", "target": "leather", "count": 1, "xp": 25},
 		{"text": "Harvest 1 squirrel fur", "type": "collect", "target": "squirrel:fur", "count": 1, "xp": 20},
 		{"text": "Harvest 10 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 10, "xp": 40},
+		{"text": "Build the kitchen", "type": "build", "target": "kitchen", "count": 1, "xp": 20},
 		{"text": "Cook 2 meat", "type": "craft", "target": "cooked_meat", "count": 2, "xp": 20},
 		{"text": "Craft a fur tunic", "type": "craft", "target": "fur_tunic", "count": 1, "xp": 40},
 	],
@@ -442,6 +492,8 @@ const QUEST_LINES := {
 		{"text": "Upgrade the tailor's tent to tier 2", "type": "build", "target": "tailor", "tier": 2, "count": 1, "xp": 100},
 		{"text": "Craft leather boots", "type": "craft", "target": "leather_boots", "count": 1, "xp": 120},
 		{"text": "Craft leather armor", "type": "craft", "target": "leather_armor", "count": 1, "xp": 150},
+		{"text": "Upgrade the kitchen to tier 2", "type": "build", "target": "kitchen", "tier": 2, "count": 1, "xp": 80},
+		{"text": "Cook a hunter's stew", "type": "craft", "target": "stew", "count": 1, "xp": 80},
 		{"text": "Reach level 7", "type": "level", "target": "", "count": 7, "xp": 0},
 		{"text": "Defeat the Great Boar", "type": "boss", "target": "boar", "count": 1, "xp": 300},
 		{"text": "Upgrade the house to tier 2", "type": "build", "target": "house", "tier": 2, "count": 1, "xp": 150},
@@ -457,6 +509,8 @@ const QUEST_LINES := {
 		{"text": "Upgrade the tailor's tent to tier 3", "type": "build", "target": "tailor", "tier": 3, "count": 1, "xp": 150},
 		{"text": "Craft wolf boots or wolf-pelt armor", "type": "craft", "target": "wolf_gear", "count": 1, "xp": 150},
 		{"text": "Craft an iron axe or pickaxe", "type": "craft", "target": "iron_tool", "count": 1, "xp": 200},
+		{"text": "Upgrade the kitchen to tier 3", "type": "build", "target": "kitchen", "tier": 3, "count": 1, "xp": 120},
+		{"text": "Cook a herb roast", "type": "craft", "target": "herb_roast", "count": 1, "xp": 100},
 		{"text": "Reach level 12", "type": "level", "target": "", "count": 12, "xp": 0},
 		{"text": "Defeat the Great Bear", "type": "boss", "target": "bear", "count": 1, "xp": 500},
 		{"text": "Take the northern pass", "type": "travel", "target": "far_north", "count": 1, "xp": 100},
@@ -470,7 +524,9 @@ const QUEST_LINES := {
 		{"text": "Upgrade the crafting place to tier 4", "type": "build", "target": "crafting", "tier": 4, "count": 1, "xp": 300},
 		{"text": "Craft a silver axe or pickaxe", "type": "craft", "target": "silver_tool", "count": 1, "xp": 300},
 		{"text": "Upgrade the tailor's tent to tier 4", "type": "build", "target": "tailor", "tier": 4, "count": 1, "xp": 250},
-		{"text": "Reach level 16", "type": "level", "target": "", "count": 16, "xp": 0},
+		{"text": "Upgrade the kitchen to tier 4", "type": "build", "target": "kitchen", "tier": 4, "count": 1, "xp": 200},
+		{"text": "Cook a northern feast", "type": "craft", "target": "feast", "count": 1, "xp": 200},
+		{"text": "Reach level 17", "type": "level", "target": "", "count": 17, "xp": 0},
 		{"text": "Defeat the Great Mammoth", "type": "boss", "target": "mammoth", "count": 1, "xp": 900},
 		{"text": "Take the sea pass", "type": "travel", "target": "frozen_sea", "count": 1, "xp": 0},
 	],
@@ -645,7 +701,7 @@ func sources(item: String) -> String:
 	for id in RECIPES:
 		var r: Dictionary = RECIPES[id]
 		if r.get("item", "") == item or r.get("tool", "") == item:
-			parts.append("made at the %s" % STRUCTURES[r["station"]]["name"].to_lower())
+			parts.append("%s at the %s" % ["cooked" if r["station"] == "kitchen" else "made", STRUCTURES[r["station"]]["name"].to_lower()])
 	if parts.is_empty():
 		return "%s: no known source yet." % item_name(item)
 	return "%s: %s." % [item_name(item), ", ".join(parts)]
@@ -661,3 +717,24 @@ func cost_text(cost: Dictionary) -> String:
 ## XP for one craft job of the recipe (multiply by the count for items).
 static func craft_xp(recipe: Dictionary) -> int:
 	return CRAFT_XP_TOOL if recipe.has("tool") else CRAFT_XP_ITEM
+
+
+## One line on a buff: "Speed +10%" or "Carry +10 kg".
+static func buff_text(kind: String, amount: float) -> String:
+	var b: Dictionary = BUFFS[kind]
+	return b["unit"] % roundi(amount * 100.0 if b["percent"] else amount)
+
+
+## What eating an item does: "+40% food · +10% water · Speed +10% for 3 min".
+static func food_text(id: String) -> String:
+	var item: Dictionary = ITEMS[id]
+	var parts := []
+	if item.get("food", 0.0) > 0.0:
+		parts.append("+%d%% food" % item["food"])
+	if item.get("water", 0.0) > 0.0:
+		parts.append("+%d%% water" % item["water"])
+	if item.has("heal"):
+		parts.append("+%d health" % item["heal"])
+	for b in item.get("buffs", []):
+		parts.append("%s for %d min" % [buff_text(b["kind"], minf(b["amount"], BUFFS[b["kind"]]["max"])), b["minutes"]])
+	return " · ".join(parts)

@@ -25,6 +25,7 @@ func _ready() -> void:
 	await _test_pack_and_storage()
 	await _test_feel()
 	await _test_batch_pin_and_speed_up()
+	await _test_kitchen_and_buffs()
 	await _test_panels()
 	_test_collect_quest()
 	await _test_levels_and_zone()
@@ -228,15 +229,16 @@ func _test_batch_pin_and_speed_up() -> void:
 	Game.storage["raw_meat"] = 6
 	Game.storage["wood"] = 30
 	Game.inventory = {}
+	Game.dev_set_tier("kitchen", 1)
 	check(Game.max_craft_count("cooked_meat") == 6, "can cook 6 meat at once")
 	check(Game.max_craft_count("stone_axe") == 1, "tools are crafted one at a time")
 	Game.start_craft("cooked_meat", 5)
-	check(Game.craft_job_at("crafting").get("count", 0) == 5 and Game.storage.get("raw_meat", 0) == 1, "batch of 5 took 5 meat")
-	var left_before := Game.craft_left("crafting")
+	check(Game.craft_job_at("kitchen").get("count", 0) == 5 and Game.storage.get("raw_meat", 0) == 1, "batch of 5 took 5 meat at the kitchen")
+	var left_before := Game.craft_left("kitchen")
 	var ads_before := Game.ads_left_today()
-	Game.speed_up("craft:crafting")
+	Game.speed_up("craft:kitchen")
 	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
-	check(Game.craft_left("crafting") < left_before * 0.6, "speed-up ad halved the craft time")
+	check(Game.craft_left("kitchen") < left_before * 0.6, "speed-up ad halved the craft time")
 	check(Game.ads_left_today() == ads_before - 1, "speed-up used one daily ad")
 	await _finish_timers()
 	check(Game.storage.get("cooked_meat", 0) >= 5, "batch delivered 5 cooked meat to storage")
@@ -246,23 +248,24 @@ func _test_batch_pin_and_speed_up() -> void:
 	Game.storage["raw_meat"] = 10
 	Game.storage["wood"] = 30
 	Game.storage["fibre"] = 9
+	Game.storage["berries"] = 9
 	Game.start_craft("cooked_meat", 2)
-	Game.start_craft("rope", 1)
-	var q := Game.craft_queue("crafting")
+	Game.start_craft("berry_mash", 1)
+	var q := Game.craft_queue("kitchen")
 	check(q.size() == 2 and q[1]["done_at"] > q[0]["done_at"], "second craft queues behind the first")
 	check(Game.craft_blocker("cooked_meat") == "Queue full", "a third craft waits for a free slot")
-	var fibre_before: int = Game.storage.get("fibre", 0)
-	Game.cancel_craft("crafting", 1)
-	check(Game.craft_queue("crafting").size() == 1 and Game.storage.get("fibre", 0) == fibre_before + 3, "cancelling a waiting job refunds its materials")
-	Game.cancel_craft("crafting", 0)
-	check(Game.craft_queue("crafting").size() == 1, "the running job can't be cancelled")
-	Game.start_craft("rope", 1)
-	var second_end: float = Game.craft_queue("crafting")[1]["done_at"]
-	Game.speed_up("craft:crafting")
+	var berries_before: int = Game.storage.get("berries", 0)
+	Game.cancel_craft("kitchen", 1)
+	check(Game.craft_queue("kitchen").size() == 1 and Game.storage.get("berries", 0) == berries_before + 3, "cancelling a waiting job refunds its materials")
+	Game.cancel_craft("kitchen", 0)
+	check(Game.craft_queue("kitchen").size() == 1, "the running job can't be cancelled")
+	Game.start_craft("berry_mash", 1)
+	var second_end: float = Game.craft_queue("kitchen")[1]["done_at"]
+	Game.speed_up("craft:kitchen")
 	await get_tree().create_timer(AdService.PLACEHOLDER_SECONDS + 0.5).timeout
-	check(Game.craft_queue("crafting")[1]["done_at"] < second_end - 1.0, "speed-up moves the waiting job up as well")
+	check(Game.craft_queue("kitchen")[1]["done_at"] < second_end - 1.0, "speed-up moves the waiting job up as well")
 	await _finish_timers()
-	check(Game.craft_queue("crafting").is_empty() and Game.storage.get("rope", 0) >= 1, "the queue drained in order")
+	check(Game.craft_queue("kitchen").is_empty() and Game.storage.get("berry_mash", 0) >= 1, "the queue drained in order")
 	var station := _nearest(func(n: Node) -> bool: return n.get("kind") == "crafting")
 	Game.start_craft("rope", 1)
 	await _frames(2)
@@ -295,10 +298,78 @@ func _test_batch_pin_and_speed_up() -> void:
 	check(Game.unseen_recipes().is_empty(), "recipes marked as seen")
 
 
+func _test_kitchen_and_buffs() -> void:
+	print("Kitchen and food buffs")
+	var kitchen := _nearest(func(n: Node) -> bool: return n.get("kind") == "kitchen")
+	check(kitchen != null and kitchen.action_label().ends_with("kitchen"), "the camp has a kitchen")
+	for id in Data.RECIPES:
+		var r: Dictionary = Data.RECIPES[id]
+		var food: bool = r.has("item") and (Data.ITEMS[r["item"]].has("food") or Data.ITEMS[r["item"]].has("water"))
+		check((r["station"] == "kitchen") == food, "%s is %scooked at the kitchen" % [id, "" if food else "not "])
+	for id in Data.ITEMS:
+		for b in Data.ITEMS[id].get("buffs", []):
+			check(Data.BUFFS.has(b["kind"]) and b["amount"] <= Data.BUFFS[b["kind"]]["max"], "%s's buff is a known kind within its cap" % id)
+	check(Data.sources("stew").contains("cooked at the kitchen"), "where-to-find says cooked at the kitchen")
+
+	Game.dev_set_tier("kitchen", 4)
+	Game.craft_jobs = {}
+	Game.storage = {"raw_meat": 20, "berries": 20, "wood": 20, "bone": 4, "herbs": 10, "cooked_meat": 6}
+	Game.inventory = {}
+	Game.energy = 100.0
+	for id in ["skewer", "stew", "pemmican", "mountain_tea", "herb_roast", "feast"]:
+		Game.start_craft(id)
+		check(Game.craft_jobs.has("kitchen"), "%s cooks at the kitchen" % id)
+		await _finish_timers()
+		Game.take_from_storage(id, 1)
+	Game.inventory["skewer"] = 2
+	Game.hunger = 50.0
+	Game.thirst = 50.0
+	var base_speed := Game.move_speed()
+	var base_damage := Game.weapon_damage()
+	var base_carry := Game.carry_limit()
+	Game.eat("skewer")
+	check(Game.hunger > 50.0 and absf(Game.move_speed() - base_speed * 1.10) < 0.01, "meat skewer: food and +10% speed")
+	check(Game.buff_left("speed") > 170.0 and Game.buff_left("speed") <= 180.0, "skewer buff lasts 3 min")
+	Game.buffs["speed"]["until"] = Game.now() + 60.0
+	Game.eat("skewer")
+	check(Game.buff_left("speed") > 170.0, "eating the same kind again restarts its timer")
+	check(absf(Game.move_speed() - base_speed * 1.10) < 0.01, "and it does not stack")
+	Game.eat("stew")
+	check(Game.weapon_damage() == ceili(base_damage * 1.25) and Game.weapon_damage() > base_damage, "stew: +25% damage, rounded up")
+	Game.eat("pemmican")
+	check(Game.carry_limit() == base_carry + 10.0, "pemmican: +10 kg carry")
+	check(Game.active_buffs().size() == 3, "three buffs run at once")
+	Game.buffs["power"]["until"] = Game.now() + 30.0 # the one ending soonest
+	Game.eat("mountain_tea")
+	check(Game.active_buffs().size() == 3 and Game.buff_left("power") == 0.0 and Game.buff_left("energy_save") > 0.0, "a fourth kind replaces the one ending soonest")
+	var energy_before := Game.energy
+	Game._spend_energy(4.0)
+	check(absf(energy_before - Game.energy - 3.0) < 0.01, "mountain tea: energy costs -25%")
+	Game.eat("feast")
+	check(absf(Game.buff_amount("speed") - 0.15) < 0.001 and Game.buff_amount("power") > 0.0, "the feast gives speed and power")
+	Game.save_game()
+	for kind in Game.buffs.keys():
+		Game.buffs[kind]["until"] = Game.now() - 1.0
+	await _frames(2)
+	check(Game.active_buffs().is_empty() and absf(Game.move_speed() - base_speed) < 0.01 and Game.carry_limit() == base_carry, "buffs expire and their bonuses go")
+	Game.load_game()
+	check(Game.buff_left("speed") > 0.0 and absf(Game.buff_amount("speed") - 0.15) < 0.001, "running buffs survive a save and load")
+	Game.buffs = {}
+	Game.health = Game.max_health() - 20.0
+	Game.hunger = 80.0
+	Game.thirst = 80.0
+	Game.eat("herb_roast")
+	var health_before := Game.health
+	await get_tree().create_timer(1.0).timeout
+	check(Game.health - health_before > Data.HEALTH_REGEN * 2.0, "herb roast: health regen x3")
+	Game.buffs = {}
+	Game.inventory = {}
+
+
 func _test_panels() -> void:
 	print("UI panels")
 	var panel: Control = world.hud._panel
-	for kind in ["crafting", "tailor", "storage", "house", "board"]:
+	for kind in ["crafting", "tailor", "kitchen", "storage", "house", "board"]:
 		world.hud.open_station(kind)
 		await _frames(2)
 		check(panel.visible and panel._content.get_child_count() > 0, "%s panel has content" % kind)
@@ -324,7 +395,7 @@ func _test_collect_quest() -> void:
 	Game.on_animal_killed("squirrel")
 	check(Game.quest_progress_count() == 9, "squirrel fur doesn't count")
 	Game.on_animal_killed("rabbit")
-	check(Game.quest_index == index + 1, "quest 'Harvest 10 rabbit fur' completed")
+	check(Game.quest_index > index, "quest 'Harvest 10 rabbit fur' completed") # the kitchen quest after it may auto-complete
 	Game.inventory = {}
 
 	# Build quests can ask for a tier; grouped targets accept any member.
@@ -345,7 +416,7 @@ func _test_collect_quest() -> void:
 	Game.quest_index = index
 	Game.quest_progress = 0
 	Game.quest_event("craft", "iron_pick", 1)
-	check(Game.quest_index == index + 1, "'iron axe or pickaxe' quest accepts a pickaxe")
+	check(Game.quest_index > index, "'iron axe or pickaxe' quest accepts a pickaxe")
 	# A zone visited before its "enter" quest came up still counts.
 	for i in all.size():
 		if all[i]["type"] == "travel" and all[i]["target"] == "east_forest":
@@ -745,3 +816,12 @@ func _test_save_load() -> void:
 	f.close()
 	Game.load_game()
 	check(Game.structure_tier("tailor") == 1, "a save that knows the tailor's tent keeps its tier")
+	check(Game.structure_tier("kitchen") == 3, "old save gets the kitchen at the crafting place's tier")
+	f = FileAccess.open(Game.SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"version": 1, "structures": {"crafting": {"tier": 3}, "kitchen": {"tier": 2}},
+		"buffs": {"speed": {"until": Game.now() + 60.0, "amount": 0.9, "label": "Test"}, "carry": {"until": 1.0, "amount": 10.0, "label": "Old"}}}))
+	f.close()
+	Game.load_game()
+	check(Game.structure_tier("kitchen") == 2, "a save that knows the kitchen keeps its tier")
+	check(absf(Game.buff_amount("speed") - Data.BUFFS["speed"]["max"]) < 0.001 and not Game.buffs.has("carry"), "loaded buffs are capped and expired ones dropped")
+	Game.buffs = {}

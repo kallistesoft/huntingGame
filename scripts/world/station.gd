@@ -209,6 +209,40 @@ func _build_structure(tier: int) -> void:
 			if tier >= 4:
 				for i in 2:
 					_building("barrel", 0.75, Vector3(-r * 1.4, 0, -r * 0.4 + i * 0.7))
+		"kitchen":
+			# Tier 1: a cooking fire with a spit. Tier 2: a clay oven beside it.
+			# Tier 3: a stone hearth with a prep table and a barrel. Tier 4: a
+			# smokehouse behind the hearth, crates of provisions in front.
+			if tier >= 4:
+				var smokehouse := _building("shack", 2.4, Vector3(-r * 0.5, 0, -r * 0.9))
+				if smokehouse != null:
+					Models.tint(smokehouse, Color(0.55, 0.5, 0.48)) # weathered, smoke-stained
+				else:
+					Shapes.add(_model, Shapes.box(Vector3(1.8, 1.6, 1.4)), dark, Vector3(-r * 0.5, 0.8, -r * 0.9))
+				Shapes.add(_model, Shapes.cylinder(0.14, 0.9), stone.darkened(0.2), Vector3(-r * 0.9, 1.9, -r * 1.1)) # chimney
+				_building("crate", 0.65, Vector3(r * 1.3, 0, r * 1.0))
+			if tier >= 3:
+				var hearth := _building("fireplace", 1.9, Vector3(r * 0.6 if tier >= 4 else 0.0, 0, r * 0.3))
+				if hearth != null:
+					Shapes.add(_model, Shapes.box(Vector3(0.5, 0.35, 0.1)), Color(1.0, 0.55, 0.15), Vector3(r * 0.6 if tier >= 4 else 0.0, 0.4, r * 0.75)) # fire
+				else:
+					_build_kitchen_fire(stone)
+				Shapes.add(_model, Shapes.box(Vector3(1.2, 0.08, 0.6)), wood, Vector3(-r * 1.3, 0.8, r * 0.6)) # prep table
+				for x in [-1, 1]:
+					Shapes.add(_model, Shapes.cylinder(0.05, 0.8), dark, Vector3(-r * 1.3 + x * 0.5, 0.4, r * 0.6))
+				_building("barrel", 0.7, Vector3(r * 1.4, 0, -r * 0.3))
+			else:
+				if _building("campfire", 0.8, Vector3(0, 0, r * 0.2)) == null:
+					_build_kitchen_fire(stone)
+				for x in [-1, 1]: # the spit
+					Shapes.add(_model, Shapes.box(Vector3(0.08, 1.0, 0.08)), dark, Vector3(x * 0.6, 0.5, r * 0.2))
+				Shapes.add(_model, Shapes.cylinder(0.025, 1.3), dark, Vector3(0, 0.95, r * 0.2)).rotation_degrees.z = 90
+				Shapes.add(_model, Shapes.capsule(0.12, 0.45), Color(0.72, 0.4, 0.3), Vector3(0, 0.95, r * 0.2)).rotation_degrees.z = 90
+			if tier == 2 or tier == 3: # clay oven: a dome on a stone base
+				var at := Vector3(-r * 1.2, 0, -r * 0.5) if tier == 2 else Vector3(r * 1.3, 0, r * 0.9)
+				Shapes.add(_model, Shapes.box(Vector3(1.0, 0.35, 1.0)), stone, at + Vector3(0, 0.175, 0))
+				Shapes.add(_model, Shapes.sphere(0.48), Color(0.74, 0.5, 0.36), at + Vector3(0, 0.45, 0))
+				Shapes.add(_model, Shapes.box(Vector3(0.3, 0.22, 0.12)), Color(0.12, 0.08, 0.06), at + Vector3(0, 0.4, 0.44))
 		"tanning":
 			# One stretched hide per tier, plus a drying line at tier 3. No kit
 			# has a tanning rack, so this one stays code-built.
@@ -302,6 +336,16 @@ func _build_storage_shapes(tier: int, wood: Color, dark: Color) -> void:
 
 
 ## A canvas ridge tent: two leaning panels on a pole, bigger with the tier.
+## A ring of stones with logs and a flame, when the campfire model is missing.
+func _build_kitchen_fire(stone: Color) -> void:
+	for i in 8:
+		var a := i * TAU / 8.0
+		Shapes.add(_model, Shapes.sphere(0.14), stone, Vector3(cos(a) * 0.5, 0.1, sin(a) * 0.5 + radius * 0.2))
+	Shapes.add(_model, Shapes.cylinder(0.07, 0.7), Color(0.4, 0.26, 0.14), Vector3(0, 0.12, radius * 0.2)).rotation_degrees.z = 90
+	Shapes.add(_model, Shapes.cylinder(0.07, 0.7), Color(0.4, 0.26, 0.14), Vector3(0, 0.12, radius * 0.2)).rotation_degrees.x = 90
+	Shapes.add(_model, Shapes.sphere(0.22), Color(1.0, 0.55, 0.15), Vector3(0, 0.32, radius * 0.2))
+
+
 func _build_tailor_shapes(tier: int, wood: Color, dark: Color) -> void:
 	var cloth := Color(0.36, 0.46, 0.62) if tier <= 2 else Color(0.6, 0.45, 0.3)
 	var w := 1.6 + tier * 0.2

@@ -61,6 +61,7 @@ func _ready() -> void:
 	_add_station("storage", CAMP.position + Vector2(7.5, 2.75))
 	_add_station("house", CAMP.position + HOUSE_SPOT)
 	_add_station("tanning", CAMP.position + Vector2(13.0, 2.75))
+	_add_station("kitchen", CAMP.position + Vector2(16.25, 2.75))
 	_add_station("tailor", CAMP.position + Vector2(6.0, 7.75))
 	_add_station("forge", CAMP.position + Vector2(14.0, 7.75))
 	_add_station("board", CAMP.position + Vector2(9.5, 7.75))

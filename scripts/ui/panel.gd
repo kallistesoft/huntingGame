@@ -7,6 +7,14 @@ extends "res://scripts/ui/panel_shell.gd"
 ## from Data.TOOLS; the colour follows the tier (stone, bone…).
 const ITEM_LOOKS := {
 	"cooked_meat": ["food", Color("f08a4b")],
+	"berry_mash": ["food", Color("b55a8a")],
+	"skewer": ["food", Color("d98f3a")],
+	"bone_broth": ["food", Color("e5c98a")],
+	"stew": ["food", Color("c2613a")],
+	"herb_roast": ["food", Color("8fb45a")],
+	"mountain_tea": ["food", Color("7fc3a6")],
+	"feast": ["food", Color("f2a541")],
+	"pemmican": ["food", Color("9b6a3f")],
 	"rope": ["rope", Color("d8b36a")],
 	"leather": ["leather", Color("a0703f")],
 	"thick_leather": ["leather", Color("7a4e28")],
@@ -235,8 +243,8 @@ func _recipe_effect(id: String) -> String:
 	var r: Dictionary = Data.RECIPES[id]
 	if r.has("item"):
 		var item: Dictionary = Data.ITEMS[r["item"]]
-		if item.has("food"):
-			return "Eat for +%d food" % item["food"]
+		if item.has("food") or item.has("water"):
+			return Data.food_text(r["item"])
 		var uses := []
 		for other in Data.RECIPES:
 			if Data.RECIPES[other]["cost"].has(r["item"]):
@@ -435,6 +443,8 @@ func _build_hunter() -> void:
 	var drain := roundi((1.0 - Game.gear_stat("body", "drain_mult", 1.0)) * 100)
 	if drain > 0:
 		totals.append("Hunger and thirst %d%% slower" % drain)
+	for kind in Game.active_buffs(): # food buffs, with their time left
+		totals.append("%s (%s)" % [Data.buff_text(kind, Game.buff_amount(kind)), fmt_time(Game.buff_left(kind))])
 	_label("Level %d · %s" % [Game.level, " · ".join(totals)])
 	_heading("Equipment")
 	_new_grid()
@@ -501,9 +511,11 @@ func _build_bag() -> void:
 		_section(group[0])
 		for id in group[1]:
 			var buttons := []
-			if Data.ITEMS[id].has("food"):
+			var text := "%s ×%d (%.1f kg)" % [Data.item_name(id), Game.inventory[id], Data.item_weight(id) * Game.inventory[id]]
+			if Data.ITEMS[id].has("food") or Data.ITEMS[id].has("water"):
 				buttons.append(["Eat", true, Game.eat.bind(id)])
-			_row("%s ×%d (%.1f kg)" % [Data.item_name(id), Game.inventory[id], Data.item_weight(id) * Game.inventory[id]], buttons)
+				text += "\n" + Data.food_text(id)
+			_row(text, buttons)
 	_separator()
 	var worn := []
 	for slot in Data.SLOTS:

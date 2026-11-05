@@ -23,6 +23,8 @@ var _stats := {} # name -> {bar, label, shown}
 var _level_badge: Control
 var _shown_xp := 0.0
 var _boost_label: Label
+var _buff_row: HFlowContainer # food buffs, one chip each, above the quest card
+var _buff_chips := {} # kind -> PanelContainer
 var _quest_label: Label
 var _quest_bar: ProgressBar
 var _quest_card: PanelContainer
@@ -161,6 +163,13 @@ func _build_quest() -> void:
 	column.add_theme_constant_override("separation", 8)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_chrome.add_child(column)
+	# Food buffs go here rather than in the stats card, whose height must not
+	# change under this column.
+	_buff_row = HFlowContainer.new()
+	_buff_row.custom_minimum_size = Vector2(300, 0)
+	_buff_row.add_theme_constant_override("h_separation", 6)
+	_buff_row.add_theme_constant_override("v_separation", 4)
+	column.add_child(_buff_row)
 	_quest_card = PanelContainer.new()
 	Style.glass(_quest_card, 20.0, 10.0)
 	_quest_card.custom_minimum_size = Vector2(300, 0)
@@ -428,6 +437,26 @@ func _show_death_screen() -> void:
 	_death_screen.create_tween().tween_property(_death_screen, "modulate:a", 1.0, 0.5)
 
 
+## One small chip per running food buff: "Speed +10% · 2:31".
+func _update_buff_chips() -> void:
+	var active := Game.active_buffs()
+	for kind in _buff_chips.keys():
+		if kind not in active:
+			_buff_chips[kind].queue_free()
+			_buff_chips.erase(kind)
+	for kind in active:
+		if not _buff_chips.has(kind):
+			var chip := PanelContainer.new()
+			chip.add_theme_stylebox_override("panel", Style.pane(Color(Style.GOOD, 0.16), 10, 5, Color(Style.GOOD, 0.45)))
+			var label := Label.new()
+			label.add_theme_font_size_override("font_size", 14)
+			chip.add_child(label)
+			_buff_row.add_child(chip)
+			_buff_chips[kind] = chip
+		_buff_chips[kind].get_child(0).text = "%s · %s" % [Data.buff_text(kind, Game.buff_amount(kind)), PanelShell.fmt_time(Game.buff_left(kind))]
+	_buff_row.visible = not active.is_empty()
+
+
 ## Red flash when hurt; hides the death screen once the hunter is back up.
 func _on_changed() -> void:
 	if Game.health < _shown_health - 0.5:
@@ -495,6 +524,7 @@ func _process(delta: float) -> void:
 	_boost_label.visible = Game.xp_boost_left() > 0.0
 	if _boost_label.visible:
 		_boost_label.text = "×%d XP · %s" % [Data.XP_BOOST_MULT, PanelShell.fmt_time(Game.xp_boost_left())]
+	_update_buff_chips()
 
 	var q := Game.current_quest()
 	_quest_card.visible = not q.is_empty()
