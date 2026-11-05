@@ -36,7 +36,7 @@ const ADS_PER_DAY := 10
 ## The curve follows the quest lines (tools/xp_budget.gd prints where each
 ## level lands): a zone's level gate is reached around its boss fight, so a
 ## new zone opens when the previous line is nearly done, not halfway through.
-const LEVEL_XP := [0, 60, 200, 450, 900, 1250, 1600, 2000, 2600, 3300, 3800, 4250, 4700, 5600, 6600, 7200, 7700, 8200, 9000, 10000]
+const LEVEL_XP := [0, 60, 200, 450, 900, 1250, 1600, 2000, 2600, 3300, 3800, 4400, 4900, 5800, 6800, 7400, 8000, 8700, 9500, 10500]
 
 # --- Zones -------------------------------------------------------------------
 
@@ -316,19 +316,19 @@ const RECIPES := {
 	"stone_pick": {"tool": "stone_pick", "tier": 1, "station": "crafting", "time": 15.0, "cost": {"wood": 2, "stone": 3}},
 	"cooked_meat": {"item": "cooked_meat", "count": 1, "tier": 1, "station": "crafting", "time": 5.0, "cost": {"raw_meat": 1, "wood": 1}},
 	"rope": {"item": "rope", "count": 1, "tier": 1, "station": "crafting", "time": 8.0, "cost": {"fibre": 3}},
-	"fur_hood": {"tool": "fur_hood", "tier": 1, "station": "crafting", "time": 15.0, "cost": {"fur": 4}},
-	"fur_tunic": {"tool": "fur_tunic", "tier": 1, "station": "crafting", "time": 25.0, "cost": {"fur": 6, "rope": 1}},
-	"fibre_wraps": {"tool": "fibre_wraps", "tier": 1, "station": "crafting", "time": 12.0, "cost": {"fibre": 6}},
-	"fibre_pouch": {"tool": "fibre_pouch", "tier": 1, "station": "crafting", "time": 20.0, "cost": {"fibre": 8, "rope": 1}},
+	"fur_hood": {"tool": "fur_hood", "tier": 1, "station": "tailor", "time": 15.0, "cost": {"fur": 4}},
+	"fur_tunic": {"tool": "fur_tunic", "tier": 1, "station": "tailor", "time": 25.0, "cost": {"fur": 6, "rope": 1}},
+	"fibre_wraps": {"tool": "fibre_wraps", "tier": 1, "station": "tailor", "time": 12.0, "cost": {"fibre": 6}},
+	"fibre_pouch": {"tool": "fibre_pouch", "tier": 1, "station": "tailor", "time": 20.0, "cost": {"fibre": 8, "rope": 1}},
 	"leather": {"item": "leather", "count": 1, "tier": 1, "station": "tanning", "time": 20.0, "cost": {"hide": 1, "fibre": 1}},
 	"bone_spear": {"tool": "bone_spear", "tier": 2, "station": "crafting", "time": 60.0, "cost": {"spear": 1, "bone": 2, "rope": 1}},
 	"bow": {"tool": "bow", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"wood": 6, "leather": 2, "rope": 2}},
 	"bone_axe": {"tool": "bone_axe", "tier": 2, "station": "crafting", "time": 60.0, "cost": {"stone_axe": 1, "bone": 3, "rope": 1}},
 	"bone_pick": {"tool": "bone_pick", "tier": 2, "station": "crafting", "time": 60.0, "cost": {"stone_pick": 1, "bone": 3, "rope": 1}},
-	"tusk_helm": {"tool": "tusk_helm", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"fur_hood": 1, "tusk": 1, "leather": 2}},
-	"leather_armor": {"tool": "leather_armor", "tier": 2, "station": "crafting", "time": 120.0, "cost": {"fur_tunic": 1, "leather": 4, "rope": 2}},
-	"leather_boots": {"tool": "leather_boots", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"fibre_wraps": 1, "leather": 3}},
-	"leather_bag": {"tool": "leather_bag", "tier": 2, "station": "crafting", "time": 90.0, "cost": {"fibre_pouch": 1, "leather": 4}},
+	"tusk_helm": {"tool": "tusk_helm", "tier": 2, "station": "tailor", "time": 90.0, "cost": {"fur_hood": 1, "tusk": 1, "leather": 2}},
+	"leather_armor": {"tool": "leather_armor", "tier": 2, "station": "tailor", "time": 120.0, "cost": {"fur_tunic": 1, "leather": 4, "rope": 2}},
+	"leather_boots": {"tool": "leather_boots", "tier": 2, "station": "tailor", "time": 90.0, "cost": {"fibre_wraps": 1, "leather": 3}},
+	"leather_bag": {"tool": "leather_bag", "tier": 2, "station": "tailor", "time": 90.0, "cost": {"fibre_pouch": 1, "leather": 4}},
 	# Tier 3 (mountains): iron bars from the forge, thick leather from wolf pelts.
 	"iron_bar": {"item": "iron_bar", "count": 1, "tier": 1, "station": "forge", "time": 30.0, "cost": {"iron_ore": 2, "wood": 2}},
 	"thick_leather": {"item": "thick_leather", "count": 1, "tier": 3, "station": "tanning", "time": 40.0, "cost": {"wolf_pelt": 1, "leather": 1}},
@@ -336,10 +336,10 @@ const RECIPES := {
 	"iron_bow": {"tool": "iron_bow", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"bow": 1, "iron_bar": 1, "thick_leather": 1}},
 	"iron_axe": {"tool": "iron_axe", "tier": 3, "station": "crafting", "time": 150.0, "cost": {"bone_axe": 1, "iron_bar": 2}},
 	"iron_pick": {"tool": "iron_pick", "tier": 3, "station": "crafting", "time": 150.0, "cost": {"bone_pick": 1, "iron_bar": 2}},
-	"iron_helm": {"tool": "iron_helm", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"tusk_helm": 1, "iron_bar": 2, "thick_leather": 1}},
-	"wolf_armor": {"tool": "wolf_armor", "tier": 3, "station": "crafting", "time": 240.0, "cost": {"leather_armor": 1, "thick_leather": 4, "rope": 2}},
-	"wolf_boots": {"tool": "wolf_boots", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"leather_boots": 1, "thick_leather": 2}},
-	"hunters_pack": {"tool": "hunters_pack", "tier": 3, "station": "crafting", "time": 180.0, "cost": {"leather_bag": 1, "thick_leather": 3, "rope": 2}},
+	"iron_helm": {"tool": "iron_helm", "tier": 3, "station": "tailor", "time": 180.0, "cost": {"tusk_helm": 1, "iron_bar": 2, "thick_leather": 1}},
+	"wolf_armor": {"tool": "wolf_armor", "tier": 3, "station": "tailor", "time": 240.0, "cost": {"leather_armor": 1, "thick_leather": 4, "rope": 2}},
+	"wolf_boots": {"tool": "wolf_boots", "tier": 3, "station": "tailor", "time": 180.0, "cost": {"leather_boots": 1, "thick_leather": 2}},
+	"hunters_pack": {"tool": "hunters_pack", "tier": 3, "station": "tailor", "time": 180.0, "cost": {"leather_bag": 1, "thick_leather": 3, "rope": 2}},
 	# Tier 4 (far north): silver bars from the forge tier 2, thick fur from the rack tier 4.
 	"silver_bar": {"item": "silver_bar", "count": 1, "tier": 2, "station": "forge", "time": 45.0, "cost": {"silver_ore": 2, "wood": 2}},
 	"thick_fur": {"item": "thick_fur", "count": 1, "tier": 4, "station": "tanning", "time": 50.0, "cost": {"fur": 4, "ice_pelt": 1}},
@@ -347,10 +347,10 @@ const RECIPES := {
 	"silver_bow": {"tool": "silver_bow", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"iron_bow": 1, "silver_bar": 2, "thick_fur": 1}},
 	"silver_axe": {"tool": "silver_axe", "tier": 4, "station": "crafting", "time": 240.0, "cost": {"iron_axe": 1, "silver_bar": 3}},
 	"silver_pick": {"tool": "silver_pick", "tier": 4, "station": "crafting", "time": 240.0, "cost": {"iron_pick": 1, "silver_bar": 3}},
-	"silver_helm": {"tool": "silver_helm", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"iron_helm": 1, "silver_bar": 2, "thick_fur": 1}},
-	"mammoth_armor": {"tool": "mammoth_armor", "tier": 4, "station": "crafting", "time": 420.0, "cost": {"wolf_armor": 1, "mammoth_pelt": 2, "thick_fur": 3}},
-	"icewolf_boots": {"tool": "icewolf_boots", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"wolf_boots": 1, "ice_pelt": 2, "thick_fur": 2}},
-	"great_pack": {"tool": "great_pack", "tier": 4, "station": "crafting", "time": 300.0, "cost": {"hunters_pack": 1, "thick_fur": 3, "rope": 3}},
+	"silver_helm": {"tool": "silver_helm", "tier": 4, "station": "tailor", "time": 300.0, "cost": {"iron_helm": 1, "silver_bar": 2, "thick_fur": 1}},
+	"mammoth_armor": {"tool": "mammoth_armor", "tier": 4, "station": "tailor", "time": 420.0, "cost": {"wolf_armor": 1, "mammoth_pelt": 2, "thick_fur": 3}},
+	"icewolf_boots": {"tool": "icewolf_boots", "tier": 4, "station": "tailor", "time": 300.0, "cost": {"wolf_boots": 1, "ice_pelt": 2, "thick_fur": 2}},
+	"great_pack": {"tool": "great_pack", "tier": 4, "station": "tailor", "time": 300.0, "cost": {"hunters_pack": 1, "thick_fur": 3, "rope": 3}},
 }
 
 ## Crafting a tool or a piece of gear is worth XP; materials and food give
@@ -371,6 +371,12 @@ const STRUCTURES := {
 		{"cost": {"wood": 10, "stone": 6, "rope": 2}, "time": 120.0, "level": 2, "house_tier": 1},
 		{"cost": {"wood": 20, "stone": 15, "leather": 2, "antler": 2}, "time": 300.0, "level": 4, "house_tier": 2},
 		{"cost": {"wood": 30, "stone": 25, "iron_bar": 4, "thick_leather": 2}, "time": 480.0, "level": 13, "house_tier": 3},
+	]},
+	"tailor": {"name": "Tailor's tent", "tiers": [ # clothing and bags; same gates as the crafting place, cheaper
+		{"cost": {"wood": 6, "fibre": 3}, "time": 10.0, "level": 1, "house_tier": 0},
+		{"cost": {"wood": 8, "rope": 2, "leather": 2}, "time": 100.0, "level": 2, "house_tier": 1},
+		{"cost": {"wood": 15, "stone": 8, "leather": 4, "thick_leather": 1}, "time": 240.0, "level": 4, "house_tier": 2},
+		{"cost": {"wood": 20, "stone": 12, "thick_leather": 3, "silver_bar": 1}, "time": 400.0, "level": 13, "house_tier": 3},
 	]},
 	"storage": {"name": "Storage", "tiers": [
 		{"cost": {"wood": 8}, "time": 15.0, "level": 1, "house_tier": 0, "capacity": 50.0},
@@ -413,6 +419,7 @@ const QUEST_LINES := {
 		{"text": "Harvest 2 rabbit fur", "type": "collect", "target": "rabbit:fur", "count": 2, "xp": 30},
 		{"text": "Build the storage", "type": "build", "target": "storage", "count": 1, "xp": 25},
 		{"text": "Gather 6 fibre from tall grass", "type": "gather", "target": "fibre", "count": 6, "xp": 15},
+		{"text": "Build the tailor's tent", "type": "build", "target": "tailor", "count": 1, "xp": 20},
 		{"text": "Craft fibre wraps", "type": "craft", "target": "fibre_wraps", "count": 1, "xp": 25},
 		{"text": "Build the tanning rack", "type": "build", "target": "tanning", "count": 1, "xp": 25},
 		{"text": "Tan 1 leather", "type": "craft", "target": "leather", "count": 1, "xp": 25},
@@ -428,6 +435,7 @@ const QUEST_LINES := {
 		{"text": "Harvest 1 deer antler", "type": "collect", "target": "deer:antler", "count": 1, "xp": 60},
 		{"text": "Upgrade the crafting place to tier 2", "type": "build", "target": "crafting", "tier": 2, "count": 1, "xp": 100},
 		{"text": "Craft a bone pickaxe", "type": "craft", "target": "bone_pick", "count": 1, "xp": 120},
+		{"text": "Upgrade the tailor's tent to tier 2", "type": "build", "target": "tailor", "tier": 2, "count": 1, "xp": 100},
 		{"text": "Craft leather boots", "type": "craft", "target": "leather_boots", "count": 1, "xp": 120},
 		{"text": "Craft leather armor", "type": "craft", "target": "leather_armor", "count": 1, "xp": 150},
 		{"text": "Reach level 7", "type": "level", "target": "", "count": 7, "xp": 0},
@@ -442,8 +450,10 @@ const QUEST_LINES := {
 		{"text": "Smelt 4 iron bars", "type": "craft", "target": "iron_bar", "count": 4, "xp": 120},
 		{"text": "Upgrade the crafting place to tier 3", "type": "build", "target": "crafting", "tier": 3, "count": 1, "xp": 200},
 		{"text": "Tan 2 thick leather", "type": "craft", "target": "thick_leather", "count": 2, "xp": 120},
+		{"text": "Upgrade the tailor's tent to tier 3", "type": "build", "target": "tailor", "tier": 3, "count": 1, "xp": 150},
+		{"text": "Craft wolf boots or wolf-pelt armor", "type": "craft", "target": "wolf_gear", "count": 1, "xp": 150},
 		{"text": "Craft an iron axe or pickaxe", "type": "craft", "target": "iron_tool", "count": 1, "xp": 200},
-		{"text": "Reach level 11", "type": "level", "target": "", "count": 11, "xp": 0},
+		{"text": "Reach level 12", "type": "level", "target": "", "count": 12, "xp": 0},
 		{"text": "Defeat the Great Bear", "type": "boss", "target": "bear", "count": 1, "xp": 500},
 		{"text": "Take the northern pass", "type": "travel", "target": "far_north", "count": 1, "xp": 100},
 	],
@@ -455,14 +465,16 @@ const QUEST_LINES := {
 		{"text": "Hunt 2 ice wolves", "type": "hunt", "target": "ice_wolf", "count": 2, "xp": 250},
 		{"text": "Upgrade the crafting place to tier 4", "type": "build", "target": "crafting", "tier": 4, "count": 1, "xp": 300},
 		{"text": "Craft a silver axe or pickaxe", "type": "craft", "target": "silver_tool", "count": 1, "xp": 300},
-		{"text": "Reach level 15", "type": "level", "target": "", "count": 15, "xp": 0},
+		{"text": "Upgrade the tailor's tent to tier 4", "type": "build", "target": "tailor", "tier": 4, "count": 1, "xp": 250},
+		{"text": "Reach level 16", "type": "level", "target": "", "count": 16, "xp": 0},
 		{"text": "Defeat the Great Mammoth", "type": "boss", "target": "mammoth", "count": 1, "xp": 900},
 		{"text": "Take the sea pass", "type": "travel", "target": "frozen_sea", "count": 1, "xp": 0},
 	],
 }
 
 ## Quest targets that stand for several ids ("craft an iron axe or pickaxe").
-const QUEST_GROUPS := {"iron_tool": ["iron_axe", "iron_pick"], "silver_tool": ["silver_axe", "silver_pick"]}
+const QUEST_GROUPS := {"iron_tool": ["iron_axe", "iron_pick"], "silver_tool": ["silver_axe", "silver_pick"],
+	"wolf_gear": ["wolf_boots", "wolf_armor"]}
 
 static var _quests_flat: Array = []
 

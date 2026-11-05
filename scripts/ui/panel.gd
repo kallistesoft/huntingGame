@@ -441,7 +441,7 @@ func _build_hunter() -> void:
 	for slot in Data.SLOTS:
 		_slot_card(slot)
 	_grid = null
-	_label("Craft equipment at the crafting place. A better piece replaces the one you wear; upgrades use the old piece.", Style.MUTED, 17)
+	_label("Weapons and tools come from the crafting place, clothing and bags from the tailor's tent. A better piece replaces the one you wear; upgrades use the old piece.", Style.MUTED, 17)
 
 
 func _slot_card(slot: String) -> void:

@@ -1045,6 +1045,10 @@ func load_game() -> void:
 				"busy_until": float(s.get("busy_until", 0.0)),
 				"next_tier": int(s.get("next_tier", 0)),
 			}
+	if not saved_structures.has("tailor") and saved_structures.has("crafting"):
+		# Save from before the tailor's tent: it opens at the crafting place's
+		# tier, so the gear the player could already make stays craftable.
+		structures["tailor"]["tier"] = structures["crafting"]["tier"]
 	craft_jobs = {}
 	var saved_jobs: Dictionary = data.get("craft_jobs", {})
 	if data.has("craft_job") and not data["craft_job"].is_empty():
