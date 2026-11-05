@@ -479,6 +479,8 @@ func open_outpost() -> void:
 
 func _process(delta: float) -> void:
 	var smooth := minf(1.0, 8.0 * delta)
+	if Game.is_dead() and not _death_screen.visible:
+		_show_death_screen() # also covers a save that was written while knocked out
 	var covered := _panel.visible or _end_screen.visible or _death_screen.visible
 	_chrome.modulate.a = move_toward(_chrome.modulate.a, 0.0 if covered else 1.0, delta * 6.0)
 	_set_stat("health", Game.health, Game.max_health(), "%d/%d" % [ceili(Game.health), Game.max_health()], smooth)
