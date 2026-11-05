@@ -8,7 +8,8 @@ extends Control
 const Style := preload("res://scripts/ui/style.gd")
 const IconButton := preload("res://scripts/ui/icon_button.gd")
 const IconRect := preload("res://scripts/ui/icon_rect.gd")
-const GRID_COLUMNS := 2
+const GRID_COLUMNS := 2 # at most; fewer when the cards would not fit
+const GRID_MIN_CARD := 480.0 # narrowest a recipe card lays out cleanly, in UI pixels
 const SCROLL_DEADZONE := 14
 
 var _dim: ColorRect
@@ -373,8 +374,15 @@ func _heading(text: String) -> void:
 ## A category heading; the rows after it go into a grid under it.
 func _section(category: String) -> void:
 	_heading(Data.CATEGORIES[category])
+	_new_grid()
+
+
+## Starts a card grid in the content. Two columns on a wide phone, one on a
+## 16:10 tablet where two cards would push the sheet past the screen edge.
+func _new_grid() -> void:
 	_grid = GridContainer.new()
-	_grid.columns = GRID_COLUMNS
+	var width := get_viewport_rect().size.x - 96 # the sheet's side margins
+	_grid.columns = clampi(int((width + 10) / (GRID_MIN_CARD + 10)), 1, GRID_COLUMNS)
 	_grid.mouse_filter = Control.MOUSE_FILTER_PASS
 	_grid.add_theme_constant_override("h_separation", 10)
 	_grid.add_theme_constant_override("v_separation", 10)
