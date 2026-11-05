@@ -45,6 +45,7 @@ var _death_screen: Control
 var _hurt_flash: ColorRect
 var _shown_health := 0.0
 var _panel: Control
+var _chrome: Control # everything that fades out while a window is open
 
 var _joy_index := -1
 var _joy_origin := Vector2.ZERO
@@ -60,6 +61,10 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = Style.make_theme()
+	_chrome = Control.new()
+	_chrome.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_chrome.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_chrome)
 
 	_build_stats()
 	_build_quest()
@@ -72,7 +77,7 @@ func _ready() -> void:
 	_messages.alignment = BoxContainer.ALIGNMENT_BEGIN
 	_messages.add_theme_constant_override("separation", 6)
 	_messages.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_messages)
+	_chrome.add_child(_messages)
 	Game.message.connect(_show_message)
 
 	_build_prompt()
@@ -107,10 +112,10 @@ func _ready() -> void:
 
 func _build_stats() -> void:
 	var card := PanelContainer.new()
-	card.theme_type_variation = "Pill"
+	Style.glass(card, 22.0, 12.0)
 	card.position = Vector2(14, 12)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(card)
+	_chrome.add_child(card)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
@@ -155,9 +160,9 @@ func _build_quest() -> void:
 	column.position = Vector2(14, 196)
 	column.add_theme_constant_override("separation", 8)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(column)
+	_chrome.add_child(column)
 	_quest_card = PanelContainer.new()
-	_quest_card.theme_type_variation = "Pill"
+	Style.glass(_quest_card, 20.0, 10.0)
 	_quest_card.custom_minimum_size = Vector2(300, 0)
 	_quest_card.size.x = 300
 	_quest_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -188,7 +193,7 @@ func _build_quest() -> void:
 
 	# Pinned recipe: what you still need for it, updated as you gather.
 	_pinned_card = PanelContainer.new()
-	_pinned_card.theme_type_variation = "Pill"
+	Style.glass(_pinned_card, 20.0, 10.0)
 	_pinned_card.custom_minimum_size = Vector2(300, 0)
 	_pinned_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pinned_card.visible = false
@@ -249,7 +254,7 @@ func _build_buttons() -> void:
 	row.position = Vector2(-14, 12)
 	row.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	row.add_theme_constant_override("separation", 10)
-	add_child(row)
+	_chrome.add_child(row)
 	for spec in [["food", "Eat", Style.FOOD, Game.eat_best],
 			["sleep", "Sleep", Color("c9b8ff"), Game.start_sleep],
 			["hunter", "Hunter", Style.GOOD, func() -> void: _panel.open_hunter()],
@@ -272,7 +277,8 @@ func _build_prompt() -> void:
 	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_prompt.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_prompt.position.y -= 24
-	add_child(_prompt)
+	Style.glass(_prompt, 24.0, 18.0)
+	_chrome.add_child(_prompt)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 	_prompt.add_child(vbox)
@@ -298,14 +304,14 @@ func _build_prompt() -> void:
 
 func _build_boss_bar() -> void:
 	_boss_card = PanelContainer.new()
-	_boss_card.theme_type_variation = "Pill"
+	Style.glass(_boss_card, 20.0, 12.0, Color(0.25, 0.04, 0.04, 0.55))
 	_boss_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_boss_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_boss_card.position.y = 100
 	_boss_card.custom_minimum_size = Vector2(420, 0)
 	_boss_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_boss_card.visible = false
-	add_child(_boss_card)
+	_chrome.add_child(_boss_card)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)
 	_boss_card.add_child(col)
@@ -322,8 +328,8 @@ func _build_boss_bar() -> void:
 
 
 func _build_end_screen() -> void:
-	_end_screen = ColorRect.new()
-	_end_screen.color = Color(0.05, 0.08, 0.06, 0.88)
+	_end_screen = PanelContainer.new()
+	Style.glass(_end_screen, 0.0, 0.0, Color(0.03, 0.06, 0.04, 0.85), 5.0)
 	_end_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_end_screen.mouse_filter = Control.MOUSE_FILTER_STOP
 	_end_screen.visible = false
@@ -370,8 +376,8 @@ func _build_death_screen() -> void:
 	_hurt_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hurt_flash)
 
-	_death_screen = ColorRect.new()
-	_death_screen.color = Color(0.18, 0.02, 0.02, 0.82)
+	_death_screen = PanelContainer.new()
+	Style.glass(_death_screen, 0.0, 0.0, Color(0.16, 0.02, 0.02, 0.82), 5.0)
 	_death_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_death_screen.mouse_filter = Control.MOUSE_FILTER_STOP
 	_death_screen.visible = false
@@ -473,6 +479,8 @@ func open_outpost() -> void:
 
 func _process(delta: float) -> void:
 	var smooth := minf(1.0, 8.0 * delta)
+	var covered := _panel.visible or _end_screen.visible or _death_screen.visible
+	_chrome.modulate.a = move_toward(_chrome.modulate.a, 0.0 if covered else 1.0, delta * 6.0)
 	_set_stat("health", Game.health, Game.max_health(), "%d/%d" % [ceili(Game.health), Game.max_health()], smooth)
 	_set_stat("energy", Game.energy, Game.max_energy(), "%d/%d" % [ceili(Game.energy), Game.max_energy()], smooth)
 	_set_stat("food", Game.hunger, 100.0, "%d%%" % ceili(Game.hunger), smooth)
@@ -589,7 +597,7 @@ func _on_level_up(level: int) -> void:
 
 func _show_message(text: String) -> void:
 	var pill := PanelContainer.new()
-	pill.theme_type_variation = "Pill"
+	Style.glass(pill, 20.0, 10.0)
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var l := Label.new()
@@ -673,14 +681,15 @@ func _draw() -> void:
 	if active and not pressed:
 		var glow := 0.5 + 0.5 * sin(_action_pulse)
 		draw_circle(c, r + 6 + glow * 6, Color(Style.ACCENT, 0.18 * (1.0 - glow * 0.5)))
-	draw_circle(c, r, Color(0, 0, 0, 0.4))
-	draw_circle(c, r - 6, Color(Style.ACCENT, 0.9) if active else Color(1, 1, 1, 0.14))
+	draw_circle(c, r, Color(0, 0, 0, 0.42))
+	draw_arc(c, r - 1.0, 0, TAU, 64, Color(1, 1, 1, 0.22), 2.0, true)
+	draw_circle(c, r - 7, Color(Style.ACCENT, 0.92) if active else Color(1, 1, 1, 0.12))
 	if active:
 		Icons.draw(self, _action_icon, c, r * 0.85, Color("2a1a08"))
 		var f := Style.font_bold()
 		var w := f.get_string_size(_action_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 28
 		var pill := Rect2(c + Vector2(-w / 2.0, -r - 46), Vector2(w, 34))
-		draw_style_box(Style.box(Style.SHADE, 17, 0), pill)
+		draw_style_box(Style.pane(Color(0, 0, 0, 0.45), 17, 0, Color(1, 1, 1, 0.18)), pill)
 		draw_string(f, pill.position + Vector2(0, 24), _action_text, HORIZONTAL_ALIGNMENT_CENTER, w, 18, Style.TEXT)
 		if _action_new:
 			draw_circle(pill.position + Vector2(w - 2, 2), 8, Style.ACCENT)
