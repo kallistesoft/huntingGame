@@ -13,6 +13,10 @@ const HEALTH_REGEN := 0.5 # per second while food and water are above LOW_NEED
 const REVIVE_HEALTH := 0.5 # share of max health after the "get back up" ad
 const REVIVE_GRACE := 2.0 # seconds the hunter can't be hit after getting back up
 const STARVE_DAMAGE := 1.0 # health lost per second for each of food/water at 0
+## Starvation never hurts inside the camp or near an outpost campfire: the
+## hunter can always make it home and cook something.
+const CAMP := Rect2(5.5, 11, 16, 10.5) # the home camp clearing, zone 1
+const CAMPFIRE_SAFE_RADIUS := 6.0 # metres around an outpost's spot
 const WAKE_NEEDS := 50.0 # food and water after giving up and waking at home
 const HUNGER_PER_SEC := 100.0 / 480.0 # full to empty in 8 minutes
 const THIRST_PER_SEC := 100.0 / 300.0 # full to empty in 5 minutes

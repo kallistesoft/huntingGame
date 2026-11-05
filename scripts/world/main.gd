@@ -4,7 +4,7 @@ extends Node3D
 ## and the UI. Map rectangles are on the ground plane: Rect2 x = world x,
 ## Rect2 y = world z.
 
-const CAMP := Rect2(5.5, 11, 16, 10.5)
+const CAMP := preload("res://scripts/autoload/data.gd").CAMP
 const PLAYER_START := Vector2(12, 16.5)
 const HOUSE_SPOT := Vector2(2.75, 7.75) # house position inside the camp
 const WORLD_SEED := 7
