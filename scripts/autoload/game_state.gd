@@ -1126,6 +1126,17 @@ func dev_give_materials() -> void:
 	changed.emit()
 
 
+## Dresses the hunter in every piece of one tier (0 strips everything), to
+## look at the gear without crafting it.
+func dev_set_gear(tier: int) -> void:
+	tools.clear()
+	for id in Data.TOOLS:
+		if Data.TOOLS[id].get("tier", 0) == tier:
+			tools[id] = true
+	changed.emit()
+	save_game()
+
+
 func dev_set_tier(kind: String, tier: int) -> void:
 	structures[kind] = {"tier": tier, "busy_until": 0.0, "next_tier": 0}
 	_check_quest()

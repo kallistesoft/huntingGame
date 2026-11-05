@@ -129,6 +129,12 @@ static func _fmt(seconds: float) -> String:
 	return "%d:%02d" % [s / 60, s % 60]
 
 
+## Where each kit model's door or working side is (degrees around Y), so it
+## can be turned towards +Z, the side the camera sees.
+const FACING := {"tent": 0.0, "shack": 0.0, "house": 0.0, "storage_hut": 0.0, "storage_shed": 0.0,
+	"gazebo": 0.0, "sawmill_house": 0.0, "fireplace": 0.0, "blacksmith": 0.0}
+
+
 func _build_structure(tier: int) -> void:
 	if _model != null:
 		_model.queue_free()
@@ -141,103 +147,159 @@ func _build_structure(tier: int) -> void:
 			for z in [-1, 1]:
 				Shapes.add(_model, Shapes.box(Vector3(0.12, 0.4, 0.12)), Color(0.5, 0.32, 0.14), Vector3(x * r, 0.2, z * r))
 		Shapes.add(_model, Shapes.box(Vector3(r * 2, 0.02, r * 2)), Color(1, 1, 1, 0.25), Vector3(0, 0.02, 0))
+		_place_signs(0.0)
 		return
-	var size := 1.0 + 0.1 * (tier - 1) # each tier is a bit bigger
-	_model.scale = Vector3.ONE * size
 	var wood := Color(0.5, 0.33, 0.18)
 	var dark := wood.darkened(0.3)
 	var stone := Color(0.5, 0.5, 0.52)
-	var thatch := Color(0.72, 0.6, 0.3)
-	var tile := Color(0.5, 0.18, 0.12)
 	match kind:
 		"crafting":
-			# Tier 1: a bench with an anvil stone. Tier 2: a tool rack and a
-			# fire pit. Tier 3: a roof on four posts and a second bench.
-			Shapes.add(_model, Shapes.box(Vector3(r * 1.8, 0.12, r * 1.1)), wood.lightened(0.1), Vector3(0, 0.85, 0))
-			for x in [-1, 1]:
-				for z in [-1, 1]:
-					Shapes.add(_model, Shapes.box(Vector3(0.12, 0.85, 0.12)), dark, Vector3(x * r * 0.8, 0.42, z * r * 0.45))
-			if Models.spawn("anvil", _model, 0.4, Vector3(-0.3, 0.91, 0)) == null:
-				Shapes.add(_model, Shapes.box(Vector3(0.5, 0.25, 0.3)), stone, Vector3(-0.3, 1.03, 0)) # anvil stone
-			if tier >= 2:
-				Shapes.add(_model, Shapes.cylinder(0.35, 0.3), Color(0.35, 0.3, 0.28), Vector3(r * 1.3, 0.15, 0)) # fire pit
-				Shapes.add(_model, Shapes.cylinder(0.12, 0.3, 0.0), Color(1.0, 0.55, 0.1), Vector3(r * 1.3, 0.45, 0)) # ember
-				Shapes.add(_model, Shapes.box(Vector3(0.1, 1.6, 0.1)), dark, Vector3(-r * 1.1, 0.8, -r * 0.7)) # tool rack
-				Shapes.add(_model, Shapes.box(Vector3(0.9, 0.08, 0.08)), dark, Vector3(-r * 0.75, 1.5, -r * 0.7))
-				Shapes.add(_model, Shapes.box(Vector3(0.22, 0.14, 0.05)), stone, Vector3(-r * 0.55, 1.25, -r * 0.7)) # hanging axe head
-				Shapes.add(_model, Shapes.cylinder(0.025, 0.5), wood, Vector3(-r * 0.55, 1.1, -r * 0.7))
-			if tier >= 3:
-				for x in [-1, 1]:
-					for z in [-1, 1]:
-						Shapes.add(_model, Shapes.box(Vector3(0.14, 2.2, 0.14)), dark, Vector3(x * r * 1.4, 1.1, z * r * 1.1))
-				var roof := PrismMesh.new()
-				roof.size = Vector3(r * 3.2, 0.7, r * 2.6)
-				Shapes.add(_model, roof, thatch, Vector3(0, 2.55, 0))
-				Shapes.add(_model, Shapes.box(Vector3(r * 0.9, 0.1, r * 0.8)), wood.lightened(0.1), Vector3(r * 0.5, 0.7, -r * 0.9)) # second bench
-				Shapes.add(_model, Shapes.box(Vector3(0.35, 0.2, 0.25)), Color(0.35, 0.37, 0.42), Vector3(r * 0.5, 0.85, -r * 0.9)) # iron anvil
-		"storage":
-			# Tier 1: a crate. Tier 2: a shed with a flat roof and barrels.
-			# Tier 3: a barn with a pitched roof and a wide door.
-			if tier == 1:
-				if Models.spawn("crate", _model, 1.1) == null:
-					Shapes.add(_model, Shapes.box(Vector3(r * 1.8, 1.0, r * 1.2)), wood, Vector3(0, 0.5, 0))
-					Shapes.add(_model, Shapes.box(Vector3(r * 1.9, 0.12, r * 1.3)), dark, Vector3(0, 1.06, 0))
+			# Tier 1: a workbench. Tier 2: a grindstone and an anvil bench beside
+			# it. Tier 3: a roof over the lot and a log pile. Tier 4: a timber
+			# workshop with its own saw and logs.
+			if tier >= 4 and _building("sawmill_house", 3.6) != null:
+				_building("sawmill_logs", 0.6, Vector3(r * 1.9, 0, r * 0.4))
+			elif _building("workbench", 0.95, Vector3(0, 0, r * 0.15)) != null:
+				if tier >= 2:
+					_building("anvil", 0.85, Vector3(r * 1.2, 0, -r * 0.3))
+					_building("workbench_grind", 0.9, Vector3(-r * 1.2, 0, -r * 0.3))
+				if tier >= 3:
+					_building("gazebo", 3.2, Vector3(0, 0, -r * 0.1))
+					_building("sawmill_logs", 0.55, Vector3(r * 1.9, 0, r * 0.9))
 			else:
-				var h := 1.5 if tier == 2 else 2.0
-				Shapes.add(_model, Shapes.box(Vector3(r * 2.0, h, r * 1.6)), wood, Vector3(0, h / 2.0, 0))
-				for i in 4: # plank lines
-					Shapes.add(_model, Shapes.box(Vector3(r * 2.02, 0.04, r * 1.62)), dark, Vector3(0, 0.3 + i * (h - 0.4) / 3.0, 0))
-				Shapes.add(_model, Shapes.box(Vector3(0.9, h * 0.6, 0.06)), dark, Vector3(0, h * 0.3, r * 0.8)) # door
-				if tier == 2:
-					Shapes.add(_model, Shapes.box(Vector3(r * 2.3, 0.12, r * 1.9)), dark, Vector3(0, h + 0.06, 0))
-				else:
-					var roof := PrismMesh.new()
-					roof.size = Vector3(r * 2.4, 0.9, r * 2.0)
-					Shapes.add(_model, roof, tile, Vector3(0, h + 0.45, 0))
-					Shapes.add(_model, Shapes.box(Vector3(0.5, 0.5, 0.06)), Color(0.85, 0.9, 1.0), Vector3(0, h * 0.75, r * 0.81)) # loft window
+				_build_crafting_shapes(tier, wood, dark, stone)
+		"storage":
+			# Tier 1: a crate. Tier 2: a plank hut on a deck. Tier 3: a stone
+			# shed with a tiled roof, crates and barrels.
+			var id: String = ["crate", "storage_hut", "storage_shed"][clampi(tier, 1, 3) - 1]
+			if _building(id, [1.1, 2.8, 3.0][clampi(tier, 1, 3) - 1]) != null:
 				for i in tier - 1: # barrels beside it
-					if Models.spawn("barrel", _model, 0.75, Vector3(r * 1.4, 0, -r * 0.5 + i * 0.7)) == null:
-						Shapes.add(_model, Shapes.cylinder(0.3, 0.7), wood.lightened(0.2), Vector3(r * 1.4, 0.35, -r * 0.5 + i * 0.7))
-						Shapes.add(_model, Shapes.cylinder(0.31, 0.06), dark, Vector3(r * 1.4, 0.35, -r * 0.5 + i * 0.7))
+					_building("barrel", 0.75, Vector3(r * 1.6, 0, -r * 0.5 + i * 0.7))
+			else:
+				_build_storage_shapes(tier, wood, dark)
 		"house":
-			# Tier 1: a hut. Tier 2: chimney and window. Tier 3: a porch under
-			# a wider roof and a second window.
-			Shapes.add(_model, Shapes.box(Vector3(r * 1.9, 1.6, r * 1.9)), Color(0.62, 0.4, 0.25), Vector3(0, 0.8, 0))
-			var roof := PrismMesh.new()
-			roof.size = Vector3(r * 2.3, 1.1, r * (2.3 if tier < 3 else 3.1))
-			Shapes.add(_model, roof, tile, Vector3(0, 2.15, 0 if tier < 3 else r * 0.4))
-			Shapes.add(_model, Shapes.box(Vector3(0.5, 0.9, 0.05)), Color(0.3, 0.18, 0.1), Vector3(0, 0.45, r * 0.96)) # door
-			if tier >= 2:
-				Shapes.add(_model, Shapes.box(Vector3(0.3, 0.8, 0.3)), stone, Vector3(r * 0.6, 2.5, -0.3)) # chimney
-				Shapes.add(_model, Shapes.box(Vector3(0.45, 0.45, 0.05)), Color(0.85, 0.9, 1.0), Vector3(-r * 0.5, 1.0, r * 0.96)) # window
-			if tier >= 3:
-				for x in [-1, 1]:
-					Shapes.add(_model, Shapes.box(Vector3(0.12, 1.5, 0.12)), dark, Vector3(x * r * 0.95, 0.75, r * 1.5)) # porch posts
-				Shapes.add(_model, Shapes.box(Vector3(r * 2.1, 0.08, r * 0.9)), wood, Vector3(0, 0.04, r * 1.35)) # porch floor
-				Shapes.add(_model, Shapes.box(Vector3(0.45, 0.45, 0.05)), Color(0.85, 0.9, 1.0), Vector3(r * 0.95, 1.0, -r * 0.3)) # side window
+			# Tier 1: a tent. Tier 2: a plank shack. Tier 3: a timber house with
+			# a tiled roof and crates by the door.
+			var id: String = ["tent", "shack", "house"][clampi(tier, 1, 3) - 1]
+			var home := _building(id, [2.4, 2.6, 2.9][clampi(tier, 1, 3) - 1])
+			if home == null:
+				_build_house_shapes(tier, dark, stone)
+			elif tier == 1: # the kit's army-green canvas becomes stitched hides
+				Models.paint(home, ["Green"], Color(0.66, 0.5, 0.3))
+				Models.paint(home, ["LightGreen"], Color(0.78, 0.62, 0.4))
 		"tanning":
-			# One stretched hide per tier, plus a drying line at tier 3.
+			# One stretched hide per tier, plus a drying line at tier 3. No kit
+			# has a tanning rack, so this one stays code-built.
 			for i in tier:
 				var z := -i * 0.7
 				for x in [-1, 1]:
 					Shapes.add(_model, Shapes.box(Vector3(0.14, 1.9 - i * 0.2, 0.14)), wood, Vector3(x * r * 0.9, 0.95 - i * 0.1, z))
 				Shapes.add(_model, Shapes.box(Vector3(r * 1.95, 0.1, 0.1)), dark, Vector3(0, 1.85 - i * 0.2, z))
-				var hide: Color = [Color(0.78, 0.6, 0.4), Color(0.62, 0.42, 0.26), Color(0.5, 0.5, 0.55)][i]
+				var hide: Color = [Color(0.78, 0.6, 0.4), Color(0.62, 0.42, 0.26), Color(0.5, 0.5, 0.55), Color(0.9, 0.9, 0.94)][i]
 				Shapes.add(_model, Shapes.box(Vector3(r * 1.3, 1.15 - i * 0.1, 0.06)), hide, Vector3(0, 1.15 - i * 0.1, z))
 			if tier >= 3:
 				Shapes.add(_model, Shapes.cylinder(0.02, r * 2.4), dark, Vector3(0, 1.4, r * 0.9)).rotation_degrees.z = 90
 				for i in 3:
 					Shapes.add(_model, Shapes.box(Vector3(0.35, 0.5, 0.04)), Color(0.55, 0.52, 0.58), Vector3(-r * 0.7 + i * r * 0.7, 1.12, r * 0.9))
+			_building("barrel", 0.7, Vector3(r * 1.5, 0, r * 0.6))
 		"forge":
-			# A stone hearth with a chimney stack, a glowing mouth and an anvil.
-			Shapes.add(_model, Shapes.box(Vector3(r * 1.6, 1.2, r * 1.2)), stone, Vector3(0, 0.6, 0))
-			Shapes.add(_model, Shapes.box(Vector3(0.6, 1.6, 0.6)), stone.darkened(0.15), Vector3(-r * 0.4, 1.9, -r * 0.2)) # stack
-			Shapes.add(_model, Shapes.box(Vector3(0.6, 0.45, 0.1)), Color(1.0, 0.5, 0.1), Vector3(0.1, 0.55, r * 0.61)) # glowing mouth
-			Shapes.add(_model, Shapes.cylinder(0.3, 0.6), dark, Vector3(r * 1.2, 0.3, 0.2)) # anvil stump
-			if Models.spawn("anvil", _model, 0.45, Vector3(r * 1.2, 0.6, 0.2)) == null:
-				Shapes.add(_model, Shapes.box(Vector3(0.45, 0.22, 0.28)), Color(0.35, 0.37, 0.42), Vector3(r * 1.2, 0.75, 0.2)) # anvil
-			Shapes.add(_model, Shapes.box(Vector3(0.5, 0.25, 0.8)), wood, Vector3(-r * 1.2, 0.35, 0.3)) # bellows
-			Shapes.add(_model, Shapes.cylinder(0.04, 0.9), dark, Vector3(-r * 1.2, 0.55, -0.2)).rotation_degrees.x = 90
+			# Tier 1: a stone hearth with a glowing mouth and an anvil on a
+			# stump. Tier 2: the whole smithy, chimney included.
+			if tier >= 2 and _building("blacksmith", 3.6) != null:
+				Shapes.add(_model, Shapes.box(Vector3(0.5, 0.4, 0.1)), Color(1.0, 0.5, 0.1), Vector3(-r * 0.2, 0.5, r * 1.21)) # glow by the door
+			elif _building("fireplace", 2.2) != null:
+				Shapes.add(_model, Shapes.box(Vector3(0.6, 1.4, 0.6)), stone.darkened(0.15), Vector3(-r * 0.3, 1.9, -r * 0.2)) # stack
+				Shapes.add(_model, Shapes.box(Vector3(0.6, 0.4, 0.1)), Color(1.0, 0.5, 0.1), Vector3(0.0, 0.45, r * 0.52)) # glowing mouth
+			else:
+				_build_forge_shapes(wood, dark, stone)
+			Shapes.add(_model, Shapes.cylinder(0.3, 0.6), dark, Vector3(r * 1.4, 0.3, 0.3)) # anvil stump
+			if _building("anvil", 0.45, Vector3(r * 1.4, 0.6, 0.3)) == null:
+				Shapes.add(_model, Shapes.box(Vector3(0.45, 0.22, 0.28)), Color(0.35, 0.37, 0.42), Vector3(r * 1.4, 0.75, 0.3))
+	_place_signs(Models.bounds(_model).end.y)
+
+
+## Spawns a kit model as part of the building, turned to face the camera.
+## Buildings (those in FACING) are sized by their footprint so they stay on
+## their plot; props by their height.
+func _building(id: String, size: float, pos := Vector3.ZERO) -> Node3D:
+	if not FACING.has(id):
+		return Models.spawn(id, _model, size, pos)
+	var node := Models.spawn_fit(id, _model, size, pos)
+	if node != null:
+		node.rotation_degrees.y = FACING[id]
+	return node
+
+
+## Lifts the label and the progress bar above whatever was built.
+func _place_signs(top: float) -> void:
+	var base := 3.3 if kind == "house" else 2.2
+	_label.position.y = maxf(base, top + 0.6)
+	if _bar != null:
+		_bar.position.y = maxf(base + 0.8, top + 1.3)
+		_bar_label.position.y = _bar.position.y + 0.45
+
+
+# --- Code-built fallbacks, used when a kit model is missing -----------------
+
+func _build_crafting_shapes(tier: int, wood: Color, dark: Color, stone: Color) -> void:
+	var r := radius
+	Shapes.add(_model, Shapes.box(Vector3(r * 1.8, 0.12, r * 1.1)), wood.lightened(0.1), Vector3(0, 0.85, 0))
+	for x in [-1, 1]:
+		for z in [-1, 1]:
+			Shapes.add(_model, Shapes.box(Vector3(0.12, 0.85, 0.12)), dark, Vector3(x * r * 0.8, 0.42, z * r * 0.45))
+	Shapes.add(_model, Shapes.box(Vector3(0.5, 0.25, 0.3)), stone, Vector3(-0.3, 1.03, 0)) # anvil stone
+	if tier >= 2:
+		Shapes.add(_model, Shapes.cylinder(0.35, 0.3), Color(0.35, 0.3, 0.28), Vector3(r * 1.3, 0.15, 0)) # fire pit
+		Shapes.add(_model, Shapes.cylinder(0.12, 0.3, 0.0), Color(1.0, 0.55, 0.1), Vector3(r * 1.3, 0.45, 0)) # ember
+		Shapes.add(_model, Shapes.box(Vector3(0.1, 1.6, 0.1)), dark, Vector3(-r * 1.1, 0.8, -r * 0.7)) # tool rack
+		Shapes.add(_model, Shapes.box(Vector3(0.9, 0.08, 0.08)), dark, Vector3(-r * 0.75, 1.5, -r * 0.7))
+	if tier >= 3:
+		for x in [-1, 1]:
+			for z in [-1, 1]:
+				Shapes.add(_model, Shapes.box(Vector3(0.14, 2.2, 0.14)), dark, Vector3(x * r * 1.4, 1.1, z * r * 1.1))
+		var roof := PrismMesh.new()
+		roof.size = Vector3(r * 3.2, 0.7, r * 2.6)
+		Shapes.add(_model, roof, Color(0.72, 0.6, 0.3), Vector3(0, 2.55, 0))
+
+
+func _build_storage_shapes(tier: int, wood: Color, dark: Color) -> void:
+	var r := radius
+	if tier == 1:
+		Shapes.add(_model, Shapes.box(Vector3(r * 1.8, 1.0, r * 1.2)), wood, Vector3(0, 0.5, 0))
+		Shapes.add(_model, Shapes.box(Vector3(r * 1.9, 0.12, r * 1.3)), dark, Vector3(0, 1.06, 0))
+		return
+	var h := 1.5 if tier == 2 else 2.0
+	Shapes.add(_model, Shapes.box(Vector3(r * 2.0, h, r * 1.6)), wood, Vector3(0, h / 2.0, 0))
+	Shapes.add(_model, Shapes.box(Vector3(0.9, h * 0.6, 0.06)), dark, Vector3(0, h * 0.3, r * 0.8)) # door
+	if tier == 2:
+		Shapes.add(_model, Shapes.box(Vector3(r * 2.3, 0.12, r * 1.9)), dark, Vector3(0, h + 0.06, 0))
+	else:
+		var roof := PrismMesh.new()
+		roof.size = Vector3(r * 2.4, 0.9, r * 2.0)
+		Shapes.add(_model, roof, Color(0.5, 0.18, 0.12), Vector3(0, h + 0.45, 0))
+
+
+func _build_house_shapes(tier: int, dark: Color, stone: Color) -> void:
+	var r := radius
+	Shapes.add(_model, Shapes.box(Vector3(r * 1.9, 1.6, r * 1.9)), Color(0.62, 0.4, 0.25), Vector3(0, 0.8, 0))
+	var roof := PrismMesh.new()
+	roof.size = Vector3(r * 2.3, 1.1, r * (2.3 if tier < 3 else 3.1))
+	Shapes.add(_model, roof, Color(0.5, 0.18, 0.12), Vector3(0, 2.15, 0 if tier < 3 else r * 0.4))
+	Shapes.add(_model, Shapes.box(Vector3(0.5, 0.9, 0.05)), Color(0.3, 0.18, 0.1), Vector3(0, 0.45, r * 0.96)) # door
+	if tier >= 2:
+		Shapes.add(_model, Shapes.box(Vector3(0.3, 0.8, 0.3)), stone, Vector3(r * 0.6, 2.5, -0.3)) # chimney
+	if tier >= 3:
+		for x in [-1, 1]:
+			Shapes.add(_model, Shapes.box(Vector3(0.12, 1.5, 0.12)), dark, Vector3(x * r * 0.95, 0.75, r * 1.5)) # porch posts
+
+
+func _build_forge_shapes(wood: Color, dark: Color, stone: Color) -> void:
+	var r := radius
+	Shapes.add(_model, Shapes.box(Vector3(r * 1.6, 1.2, r * 1.2)), stone, Vector3(0, 0.6, 0))
+	Shapes.add(_model, Shapes.box(Vector3(0.6, 1.6, 0.6)), stone.darkened(0.15), Vector3(-r * 0.4, 1.9, -r * 0.2)) # stack
+	Shapes.add(_model, Shapes.box(Vector3(0.6, 0.45, 0.1)), Color(1.0, 0.5, 0.1), Vector3(0.1, 0.55, r * 0.61)) # glowing mouth
+	Shapes.add(_model, Shapes.box(Vector3(0.5, 0.25, 0.8)), wood, Vector3(-r * 1.2, 0.35, 0.3)) # bellows
+	Shapes.add(_model, Shapes.cylinder(0.04, 0.9), dark, Vector3(-r * 1.2, 0.55, -0.2)).rotation_degrees.x = 90
 
 
 func _build_board() -> void:
